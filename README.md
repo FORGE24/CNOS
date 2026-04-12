@@ -27,8 +27,8 @@ CNOS 需要 **目标三元组 `x86_64-elf`** 的裸机工具链（不是 `x86_64
 **与 CI 同源的一键脚本**（版本固定在脚本内：binutils / gcc 可从 GNU 镜像拉取）：
 
 ```bash
-# 主机需已安装：gcc、g++、make、bison、flex、curl、xz 等（见脚本注释）
-sudo apt install build-essential bison flex texinfo curl xz-utils   # Debian/Ubuntu 示例
+# 主机需已安装：gcc、g++、make、bison、flex、wget/curl、xz 等；脚本会在 gcc 源码树内运行 download_prerequisites 拉取 GMP/MPFR/MPC
+sudo apt install build-essential bison flex texinfo curl xz-utils wget patch   # Debian/Ubuntu 示例
 
 bash scripts/build-x86_64-elf-toolchain.sh "$HOME/opt/cross"
 export PATH="$HOME/opt/cross/bin:$PATH"

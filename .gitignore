@@ -1,5 +1,8 @@
 # CMake
 /build/
 
+# 本地/CI 工具链一次性源码构建目录
+/build-tmp/
+
 # 构建产物复制到 ISO 目录，不纳入版本库
 /iso/boot/kernel.elf

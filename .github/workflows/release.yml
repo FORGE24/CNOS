@@ -1,4 +1,4 @@
-# 推送 v* tag：从源码构建 x86_64-elf 工具链，再构建 ISO 并发布 Release
+# 推送 v* tag：从 GNU 源码构建 x86_64-elf 工具链（Noble 无 apt 交叉包），再构建 ISO 并发布 Release
 
 name: Release
 
@@ -21,22 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ubuntu-24.04 默认源里没有 gcc-x86-64-elf / binutils-x86-64-elf，勿用 apt 装交叉链
       - name: Install host build deps + GRUB/xorriso
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            bison \
-            flex \
-            texinfo \
-            curl \
-            xz-utils \
-            cmake \
-            make \
-            nasm \
-            xorriso \
-            grub-common \
-            grub-pc-bin
+            build-essential bison flex texinfo curl xz-utils wget patch cmake make nasm \
+            xorriso grub-common grub-pc-bin
 
       - name: Cache x86_64-elf toolchain
         uses: actions/cache@v4
@@ -46,10 +37,18 @@ jobs:
           key: toolchain-${{ runner.os }}-bu2.42-gcc14.2-${{ hashFiles('scripts/build-x86_64-elf-toolchain.sh') }}
 
       - name: Build x86_64-elf toolchain (binutils + gcc from source)
-        run: bash scripts/build-x86_64-elf-toolchain.sh "${GITHUB_WORKSPACE}/.cross"
+        if: steps.cache-cross.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .cross
+          bash scripts/build-x86_64-elf-toolchain.sh "${GITHUB_WORKSPACE}/.cross"
 
-      - name: Use toolchain on PATH
+      - name: Add toolchain to PATH
         run: echo "${GITHUB_WORKSPACE}/.cross/bin" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain
+        run: |
+          x86_64-elf-gcc --version
+          x86_64-elf-ld --version
 
       - name: Configure & build
         run: |
