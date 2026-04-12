@@ -1,0 +1,11 @@
+# 裸机 x86_64 ELF 交叉工具链（PATH 中需有 x86_64-elf-gcc、nasm）
+# 使用: cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
+
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+
+find_program(CMAKE_C_COMPILER NAMES x86_64-elf-gcc REQUIRED)
+find_program(CMAKE_ASM_NASM_COMPILER NAMES nasm REQUIRED)
+
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_ASM_NASM_OBJECT_FORMAT elf64)

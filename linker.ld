@@ -1,16 +1,22 @@
-/* linker.ld - CNOS 64位微内核链接脚本 */
+/* linker.ld - CNOS 64位微内核链接脚本 (Multiboot2 / GRUB2) */
 
 ENTRY(_start)
 
 SECTIONS
 {
-    /* 
-     * 内核加载地址设为 0x8000 以匹配 boot.asm。
-     * 0x8000 位于引导程序之上，且不会覆盖引导程序。
+    /*
+     * 1MiB 处加载，符合 Multiboot2 / GRUB 常用布局。
      */
-    . = 0x8000;
+    . = 0x100000;
 
-    .text :
+    _kernel_start = .;
+
+    .multiboot ALIGN(8) :
+    {
+        *(.multiboot)
+    }
+
+    .text ALIGN(8) :
     {
         *(.text)
     }

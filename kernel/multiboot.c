@@ -3,6 +3,7 @@
 #include "multiboot.h"
 #include "drivers/graphics.h"
 #include <stddef.h>
+#include <stdint.h>
 
 static struct multiboot_tag *next_tag(struct multiboot_tag *tag) {
     uint32_t sz = tag->size;

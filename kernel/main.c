@@ -6,20 +6,12 @@
 #include "idt.h"
 #include "shell.h"
 #include "process.h"
+#include "multiboot.h"
 #include "drivers/vga.h"
 #include "drivers/serial.h"
 #include "drivers/graphics.h"
 #include "drivers/gui.h"
 #include "drivers/mouse.h"
-#include "process.h"
-
-/* E820 内存条目结构 */
-struct e820_entry {
-    uint64_t base;
-    uint64_t length;
-    uint32_t type;
-    uint32_t extended_attributes;
-} __attribute__((packed));
 
 /* 简单的输出函数封装 */
 void putchar(char c) {
@@ -64,70 +56,76 @@ void puts_dec(uint64_t n) {
 
 void test_task() {
     while (1) {
-        /* 在串口输出一些信息，证明任务在运行 */
-        // serial_puts("Test Task Running...\n");
         __asm__ volatile("hlt");
     }
 }
 
-/* 内核主入口函数 */
-void kernel_main(uint64_t mem_map_addr) {
-    /* 1. 首先初始化最基础的硬件输出和内存管理 */
+/* 内核主入口函数 (rdi=Multiboot2 信息物理地址, rsi=引导魔数) */
+void kernel_main(uint64_t mbi_phys, uint64_t boot_magic) {
     vga_init();
     serial_init();
-    pmm_init(mem_map_addr);
+
+    if (!multiboot_validate((uint32_t)boot_magic, mbi_phys)) {
+        serial_puts("CNOS: invalid Multiboot2 handoff\n");
+        while (1) {
+            __asm__ volatile("hlt");
+        }
+    }
+
+    pmm_init(mbi_phys);
     vmm_init();
-    
-    /* 2. 初始化图形模式 (现在 PMM/VMM 已就绪，可以安全进行页表映射) */
-    struct vbe_mode_info *vbe = (struct vbe_mode_info *)0x9200;
-    graphics_init(vbe);
 
-    /* 调试输出实际 VBE 信息 */
-    puts("VBE Width: "); puts_dec(vbe->width); puts("\n");
-    puts("VBE Height: "); puts_dec(vbe->height); puts("\n");
-    puts("VBE Pitch: "); puts_dec(vbe->pitch); puts("\n");
-    puts("VBE Framebuffer: "); puts_hex(vbe->framebuffer); puts("\n");
+    struct vbe_mode_info vbe;
+    for (unsigned i = 0; i < sizeof(vbe); i++) {
+        ((uint8_t *)&vbe)[i] = 0;
+    }
+    if (multiboot_fill_vbe(mbi_phys, &vbe) != 0) {
+        puts("Warning: no Multiboot framebuffer tag\n");
+    }
+    graphics_init(&vbe);
 
-    /* 3. 初始化 GUI 界面 */
+    puts("Framebuffer Width: ");
+    puts_dec(vbe.width);
+    puts("\n");
+    puts("Framebuffer Height: ");
+    puts_dec(vbe.height);
+    puts("\n");
+    puts("Framebuffer Pitch: ");
+    puts_dec(vbe.pitch);
+    puts("\n");
+    puts("Framebuffer Addr: ");
+    puts_hex(vbe.framebuffer);
+    puts("\n");
+
     gui_init();
 
-    /* 4. 初始化其他核心系统 */
     process_init();
     idt_init();
     mouse_init();
     shell_init();
 
-    /* 创建一个测试任务 */
     process_create(test_task);
-    
+
     puts("Welcome to CNOS 64-bit Microkernel!\n");
-    puts("VBE Mode Initialized (1024x768x32).\n");
+    puts("Boot via GRUB2 (Multiboot2).\n");
     puts("Memory Management Initialized.\n");
 
-    /* 解析内存地图 (仅用于输出调试信息) */
-    uint16_t entry_count = *(uint16_t *)mem_map_addr;
-    struct e820_entry *entries = (struct e820_entry *)(mem_map_addr + 4);
+    puts("\nMultiboot2 info @ ");
+    puts_hex(mbi_phys);
+    puts("\n");
 
-    puts("\nBIOS Memory Map (E820):\n");
-    for (int i = 0; i < entry_count; i++) {
-        puts_hex(entries[i].base);
-        puts(" | ");
-        puts_hex(entries[i].length);
-        puts(" | ");
-        puts_dec(entries[i].type);
-        puts("\n");
-    }
-    
     puts("\nPhysical Memory:\n");
-    puts("  Total: "); puts_dec(pmm_get_total_memory() / 1024 / 1024); puts(" MB\n");
-    puts("  Free:  "); puts_dec(pmm_get_free_memory() / 1024 / 1024); puts(" MB\n");
+    puts("  Total: ");
+    puts_dec(pmm_get_total_memory() / 1024 / 1024);
+    puts(" MB\n");
+    puts("  Free:  ");
+    puts_dec(pmm_get_free_memory() / 1024 / 1024);
+    puts(" MB\n");
 
-    /* 开启全局中断并进入 Shell 准备状态 */
     __asm__ volatile("sti");
     puts("\nInteractive GUI Ready.\n");
     puts("CNOS> ");
 
-    /* 进入内核主循环 */
     while (1) {
         __asm__ volatile("hlt");
     }
