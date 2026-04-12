@@ -1,0 +1,52 @@
+# CNOS：交叉编译内核与 ISO（需 nasm + x86_64-elf-gcc + xorriso/grub）
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain and GRUB (ISO)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            make \
+            nasm \
+            gcc-x86-64-elf \
+            binutils-x86-64-elf \
+            xorriso \
+            grub-common \
+            grub-pc-bin
+
+      - name: Configure (CMake + x86_64-elf toolchain)
+        run: cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
+
+      - name: Build kernel.elf
+        run: cmake --build build --target kernel.elf -j"$(nproc)"
+
+      - name: Build cnos.iso
+        run: cmake --build build --target cnos_iso -j"$(nproc)"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cnos-build-${{ github.sha }}
+          path: |
+            build/kernel.elf
+            build/cnos.iso
+          if-no-files-found: error
