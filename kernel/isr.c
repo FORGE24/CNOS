@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include "io.h"
 #include "shell.h"
-#include "drivers/mouse.h"
 #include "process.h"
 
 /* 寄存器结构 */
@@ -63,8 +62,8 @@ void isr_handler(struct registers *regs) {
                     }
                 }
             }
-        } else if (regs->int_no == 44) { /* IRQ 12: 鼠标 */
-            mouse_handler();
+        } else if (regs->int_no == 44) { /* IRQ 12: PS/2 鼠标（无 GUI 时排空数据） */
+            (void)inb(0x60);
         }
 
         /* 发送 EOI (End of Interrupt) */

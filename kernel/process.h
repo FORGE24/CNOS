@@ -7,33 +7,44 @@
 #include <stddef.h>
 #include "ipc.h"
 
+#define MAX_TASKS 16
+
 /* 进程状态定义 */
 typedef enum {
-    PROC_STATE_READY,     /* 就绪态 */
-    PROC_STATE_RUNNING,   /* 运行态 */
-    PROC_STATE_SENDING,   /* 阻塞：等待发送消息 */
-    PROC_STATE_RECEIVING, /* 阻塞：等待接收消息 */
-    PROC_STATE_SLEEPING,  /* 阻塞：休眠 */
-    PROC_STATE_EXITED     /* 退出 */
+    PROC_STATE_FREE,        /* 槽位未使用 */
+    PROC_STATE_READY,
+    PROC_STATE_RUNNING,
+    PROC_STATE_SENDING,
+    PROC_STATE_RECEIVING,
+    PROC_STATE_SLEEPING,
+    PROC_STATE_EXITED
 } proc_state_t;
 
-/* 进程控制块 (PCB) 结构 */
+/*
+ * 与 interrupts.asm 中 [rax+16] 保存 rsp 的布局一致：
+ * pid(8) + state(4) + 填充(4) -> rsp 在偏移 16
+ */
 typedef struct proc {
-    uint64_t pid;             /* 进程 ID */
-    proc_state_t state;       /* 进程状态 */
-    uint64_t *stack_top;      /* 内核栈顶指针 (用于上下文切换) */
-    uint64_t pml4_phys;       /* 虚拟内存地址空间 (CR3) */
-    
-    /* IPC 相关字段 */
-    message_t msg_buffer;     /* 消息缓冲区 */
-    struct proc *next_in_queue; /* 用于等待队列的链表指针 */
-    struct proc *sender_queue;  /* 等待向此进程发送消息的进程队列 */
+    uint64_t pid;
+    proc_state_t state;
+    uint64_t rsp;               /* 偏移 16：当前保存的内核栈指针 */
+    uint8_t *stack_base;        /* pmm 分配的内核栈页 */
+    uint64_t pml4_phys;
+
+    message_t msg_buffer;
+    struct proc *next_in_queue;
+    struct proc *sender_queue;
 } proc_t;
 
-/* 获取当前正在运行的进程 */
-proc_t *get_current_process();
+typedef struct {
+    proc_t tasks[MAX_TASKS];
+    int current_task_idx;
+    int task_count;
+} scheduler_t;
 
-/* 初始化进程管理系统 */
-void process_init();
+proc_t *get_current_process(void);
+void process_init(void);
+proc_t *process_create(void (*entry)(void));
+void schedule(void);
 
 #endif

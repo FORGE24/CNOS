@@ -4,7 +4,12 @@
 #include "../io.h"
 #include <stdint.h>
 
-static uint16_t *vga_buffer = (uint16_t *)VGA_ADDRESS;
+/*
+ * 必须用 volatile：否则 -O2 下对 0xB8000 的写可能被优化掉或重排，
+ * QEMU VGA 窗口不刷新，而串口 (-serial stdio) 仍正常。
+ */
+typedef volatile uint16_t vga_cell_t;
+static vga_cell_t *const vga_buffer = (vga_cell_t *)VGA_ADDRESS;
 static int cursor_x = 0;
 static int cursor_y = 0;
 

@@ -1,0 +1,5 @@
+# CMake
+/build/
+
+# 构建产物复制到 ISO 目录，不纳入版本库
+/iso/boot/kernel.elf

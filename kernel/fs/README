@@ -1,0 +1,19 @@
+kernel/fs 目录说明（已裁剪）
+==========================
+
+保留内容
+--------
+- **CNOS 自有**：`cnos/`、`cnaf/`、`vfs.c`、`vfs.h`
+- **生成/维护的头**：`include/ext2fs/`（如 `ext2_types.h`、`ext2_err.h`）
+- **e2fsprogs 源码子集**（供 libext2fs 接入，CMake 按需逐项加 `.c`）：
+  - `lib/ext2fs/` — 库本体（已删除其中 `tst_*.c`、`test_io.c` 等仅测试用源文件）
+  - `lib/et/` — com_err、`compile_et` 模板、`et_*.awk`（生成 `ext2_err.h` 等）
+  - `lib/e2p/` — libext2fs 部分源文件依赖的 `e2p.h` 等
+- **`lib/config.h.in`、`lib/dirpaths.h.in`** — autoconf 参考，对照 `cnos/config.h`
+- **`version.h`** — `E2FSPROGS_VERSION`，供 `cnos_ext2` 等打印
+
+已删除（不再保留于仓库）
+-----------------------
+整棵上游中的 **非库** 部分：`tests/`、`misc/`、`e2fsck/`、`resize/`、`debugfs/`、`doc/`、`debian/`、`po/`、`util/`、`contrib/` 等，以及顶层 `configure`、`Makefile.in`、Android 打包文件等。
+
+**未**编入 `kernel.elf` 的 `lib/ext2fs/*.c` 仍可按需从本目录加入；当前构建见仓库根 `CMakeLists.txt`。

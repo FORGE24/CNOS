@@ -20,4 +20,15 @@ static inline void io_wait() {
     outb(0x80, 0);
 }
 
+/* 端口 > 255 时必须用 DX，不能用 in/out 的 8 位立即数形式 */
+static inline void outl(uint16_t port, uint32_t val) {
+    __asm__ volatile("outl %0, %w1" : : "a"(val), "d"(port));
+}
+
+static inline uint32_t inl(uint16_t port) {
+    uint32_t ret;
+    __asm__ volatile("inl %w1, %0" : "=a"(ret) : "d"(port));
+    return ret;
+}
+
 #endif

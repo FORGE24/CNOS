@@ -1,52 +1,40 @@
 ; kernel/entry.asm - Multiboot2 入口，32位到64位长模式
-; TAB=4
-
-SECTION .multiboot
-ALIGN 8
-header_start:
-    dd 0xE85250D6
-    dd 0
-    dd header_end - header_start
-    dd 0x17ADA7BD
-    ; framebuffer 请求: 1024x768x32
-    dw 5, 0
-    dd 20
-    dd 1024
-    dd 768
-    dd 32
-    dw 0, 0
-    dd 8
-header_end:
+; Multiboot2 头必须出现在首个可加载段开头（与 .text 同段），单独 .multiboot 易导致 GRUB 报 no multiboot header found
 
 SECTION .text
 [BITS 32]
+
 extern kernel_main
 extern _bss_start
 extern _bss_end
 global _start
 
-SECTION .data
-align 4
-saved_magic:
+align 8
+header_start:
+    dd 0xE85250D6
     dd 0
-saved_mbi:
-    dd 0
+    dd header_end - header_start
+    ; checksum：使 magic+arch+length+checksum 及所有 tag 的 u32 之和 ≡ 0 (mod 2^32)
+    dd (0x100000000 - (0xE85250D6 + (header_end - header_start))) & 0xffffffff
+    ; 勿在此处请求 framebuffer（Multiboot2 type 5）：否则 GRUB 会切图形模式，
+    ; 显示器扫描线性帧缓冲，写 0xB8000 文本显存在 QEMU 窗口里不可见。
+    align 8
+    dw 0, 0
+    dd 8
+header_end:
 
-SECTION .text
 _start:
     mov [saved_magic], eax
     mov [saved_mbi], ebx
 
     mov esp, stack32_top
 
-    ; --- 显式清零整个 BSS 段 ---
     mov edi, _bss_start
     mov ecx, _bss_end
     sub ecx, edi
     xor eax, eax
     rep stosb
 
-    ; --- 开启 SSE (C 语言代码可能需要) ---
     mov eax, cr0
     and ax, 0xFFFB
     or ax, 0x0002
@@ -55,7 +43,6 @@ _start:
     or ax, 3 << 9
     mov cr4, eax
 
-    ; --- 设置64位分页 ---
     mov eax, pdpt_table
     or eax, 0x03
     mov [pml4_table], eax
@@ -129,6 +116,12 @@ long_mode_entry:
     jmp .halt
 
 SECTION .data
+align 4
+saved_magic:
+    dd 0
+saved_mbi:
+    dd 0
+
 align 16
 gdt64_start:
     dq 0x0

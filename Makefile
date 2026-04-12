@@ -7,8 +7,10 @@ TOOLCHAIN ?= $(CURDIR)/cmake/x86_64-elf.cmake
 all: configure
 	cmake --build $(BUILD_DIR)
 
+# 已有 build/CMakeCache 时不再传工具链，避免 “CMAKE_TOOLCHAIN_FILE was not used” 警告
 configure:
-	@cmake -B $(BUILD_DIR) -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN)
+	@test -f $(BUILD_DIR)/CMakeCache.txt && cmake -B $(BUILD_DIR) || \
+		cmake -B $(BUILD_DIR) -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN)
 
 clean:
 	@cmake --build $(BUILD_DIR) --target clean 2>/dev/null || true

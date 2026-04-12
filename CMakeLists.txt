@@ -1,11 +1,25 @@
 cmake_minimum_required(VERSION 3.16)
 
-# 未指定工具链时仍可配置；构建内核前请用 -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
+# 首次配置须指定工具链，例如：
+#   cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
+# 或使用：cmake --preset default（见 CMakePresets.json）
+# 已有 build/ 后只需：cmake -B build 或 cmake --build build，勿重复传工具链，否则 CMake 会警告变量未使用。
+if(CMAKE_TOOLCHAIN_FILE)
+    message(STATUS "CNOS: CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+endif()
+
 project(CNOS LANGUAGES C ASM_NASM)
 
 set(CMAKE_ASM_NASM_OBJECT_FORMAT elf64)
 
 set(KERNEL_INCLUDE ${CMAKE_SOURCE_DIR}/kernel)
+set(KERNEL_FS_CNOS ${CMAKE_SOURCE_DIR}/kernel/fs/cnos)
+set(KERNEL_FS_INCLUDE ${CMAKE_SOURCE_DIR}/kernel/fs/include)
+set(KERNEL_FS_LIB ${CMAKE_SOURCE_DIR}/kernel/fs/lib)
+set(KERNEL_FS_EXT2FS ${CMAKE_SOURCE_DIR}/kernel/fs/lib/ext2fs)
+set(KERNEL_FS_CNAF ${CMAKE_SOURCE_DIR}/kernel/fs/cnaf)
+
+# e2fsprogs 整树在 kernel/fs/lib 等目录；CNOS 只链接下列 .c，按需再追加 lib/ext2fs/*.c（见 kernel/fs/README）
 
 set(KERNEL_ASM
     kernel/entry.asm
@@ -21,20 +35,26 @@ set(KERNEL_C
     kernel/isr.c
     kernel/shell.c
     kernel/ipc.c
+    kernel/fs/vfs.c
+    kernel/fs/cnos/cnos_alloc.c
+    kernel/fs/cnos/cnos_ext2.c
+    kernel/fs/cnaf/cnaf_validate.c
     kernel/drivers/vga.c
     kernel/drivers/serial.c
     kernel/drivers/pci.c
     kernel/process.c
-    kernel/drivers/graphics.c
-    kernel/drivers/font.c
-    kernel/drivers/gui.c
-    kernel/drivers/sheet.c
-    kernel/drivers/mouse.c
 )
 
 add_executable(kernel.elf ${KERNEL_ASM} ${KERNEL_C})
 
-target_include_directories(kernel.elf PRIVATE ${KERNEL_INCLUDE})
+target_include_directories(kernel.elf PRIVATE
+    ${KERNEL_INCLUDE}
+    ${KERNEL_FS_CNOS}
+    ${KERNEL_FS_CNAF}
+    ${KERNEL_FS_INCLUDE}
+    ${KERNEL_FS_LIB}
+    ${KERNEL_FS_EXT2FS}
+)
 
 target_compile_options(kernel.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C>:-ffreestanding;-O2;-Wall;-Wextra;-m64;-fno-stack-protector;-nostdlib;-fno-builtin>

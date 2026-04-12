@@ -1,7 +1,6 @@
 /* kernel/multiboot.c - 解析 GRUB2 传递的 Multiboot2 信息 */
 
 #include "multiboot.h"
-#include "drivers/graphics.h"
 #include <stddef.h>
 #include <stdint.h>
 

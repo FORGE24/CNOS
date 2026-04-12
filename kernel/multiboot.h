@@ -5,7 +5,29 @@
 
 #include <stdint.h>
 
-struct vbe_mode_info;
+/* 帧缓冲信息（Multiboot2 tag 填充；与旧 graphics.h 布局一致，供日后恢复 GUI 时用） */
+struct vbe_mode_info {
+    uint16_t attributes;
+    uint8_t window_a, window_b;
+    uint16_t granularity;
+    uint16_t window_size;
+    uint16_t segment_a, segment_b;
+    uint32_t win_func_ptr;
+    uint16_t pitch;
+    uint16_t width, height;
+    uint8_t w_char, y_char, planes, bpp, banks;
+    uint8_t memory_model, bank_size, image_pages;
+    uint8_t reserved0;
+    uint8_t red_mask, red_position;
+    uint8_t green_mask, green_position;
+    uint8_t blue_mask, blue_position;
+    uint8_t reserved_mask, reserved_position;
+    uint8_t direct_color_attributes;
+    uint32_t framebuffer;
+    uint32_t off_screen_mem_off;
+    uint16_t off_screen_mem_size;
+    uint8_t reserved1[206];
+} __attribute__((packed));
 
 #define MULTIBOOT2_BOOTLOADER_MAGIC 0x36d76289U
 

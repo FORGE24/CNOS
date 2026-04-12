@@ -9,16 +9,11 @@ extern void puts_hex(uint64_t n);
 extern void putchar(char c);
 
 uint32_t pci_read_config(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
-    uint32_t address = (uint32_t)((uint32_t)0x80000000 | ((uint32_t)bus << 16) | ((uint32_t)device << 11) | ((uint32_t)function << 8) | (offset & 0xFC));
-    outb(PCI_CONFIG_ADDR, (uint8_t)(address & 0xFF));
-    outb(PCI_CONFIG_ADDR + 1, (uint8_t)((address >> 8) & 0xFF));
-    outb(PCI_CONFIG_ADDR + 2, (uint8_t)((address >> 16) & 0xFF));
-    outb(PCI_CONFIG_ADDR + 3, (uint8_t)((address >> 24) & 0xFF));
-    
-    // 我们需要一个 32 位的 in 端口读取函数
-    uint32_t ret;
-    __asm__ volatile("inl %1, %0" : "=a"(ret) : "Nd"(PCI_CONFIG_DATA));
-    return ret;
+    uint32_t address =
+        (uint32_t)0x80000000u | ((uint32_t)bus << 16) | ((uint32_t)device << 11) |
+        ((uint32_t)function << 8) | (uint32_t)(offset & 0xFCu);
+    outl(PCI_CONFIG_ADDR, address);
+    return inl(PCI_CONFIG_DATA);
 }
 
 void pci_list_devices() {
