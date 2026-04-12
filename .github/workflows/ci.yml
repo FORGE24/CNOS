@@ -5,7 +5,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-  workflow_dispatch:
+  workflow_dispatch: # 这里已经开启了 GitHub 界面上的 "Run workflow" 手动按钮
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -23,24 +23,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential bison flex texinfo curl xz-utils wget patch cmake make nasm \
-            xorriso grub-common grub-pc-bin
+            xorriso grub-common grub-pc-bin bzip2 # 编译 GCC 依赖包解压需要 bzip2
 
       - name: Cache x86_64-elf toolchain
         uses: actions/cache@v4
         id: cache-cross
         with:
           path: .cross
-          # 建议增加版本号在 key 里，方便手动强制刷新缓存
-          key: toolchain-${{ runner.os }}-bu2.42-gcc14.2-${{ hashFiles('scripts/build-x86_64-elf-toolchain.sh') }}
+          # key 建议加入 scripts 文件的 hash，这样当你修改 build-x86_64-elf-toolchain.sh 时，缓存会自动失效并重编
+          key: toolchain-${{ runner.os }}-gcc14.2-${{ hashFiles('scripts/build-x86_64-elf-toolchain.sh') }}
+          # restore-keys 可以让你在 key 没完全匹配时也能尝试找回旧缓存（可选）
+          restore-keys: |
+            toolchain-${{ runner.os }}-gcc14.2-
 
       - name: Build x86_64-elf toolchain
-        # 只有在缓存没命中时才执行编译
         if: steps.cache-cross.outputs.cache-hit != 'true'
         run: |
+          # 确保脚本有执行权限
+          chmod +x scripts/build-x86_64-elf-toolchain.sh
           mkdir -p .cross
           bash scripts/build-x86_64-elf-toolchain.sh "${GITHUB_WORKSPACE}/.cross"
 
       - name: Add toolchain to PATH
+        # 这一步无论是否有缓存都要执行，确保工具链在当前环境可用
         run: echo "${GITHUB_WORKSPACE}/.cross/bin" >> "$GITHUB_PATH"
 
       - name: Verify Toolchain
@@ -49,6 +54,7 @@ jobs:
           x86_64-elf-ld --version
 
       - name: Configure (CMake)
+        # 建议在配置前清理旧的 build 目录，防止残留干扰
         run: cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
 
       - name: Build kernel.elf
