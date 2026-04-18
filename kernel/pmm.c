@@ -131,6 +131,45 @@ void *pmm_alloc_page() {
     return NULL; /* 内存不足 */
 }
 
+void *pmm_alloc_contiguous_pages(uint64_t n) {
+    if (n == 0) {
+        return NULL;
+    }
+    for (uint64_t start = 0; start + n <= total_pages; start++) {
+        int ok = 1;
+        for (uint64_t j = 0; j < n; j++) {
+            if (bitmap_test(start + j)) {
+                ok = 0;
+                break;
+            }
+        }
+        if (ok) {
+            for (uint64_t j = 0; j < n; j++) {
+                bitmap_set(start + j);
+            }
+            used_pages += n;
+            return (void *)(start * PAGE_SIZE);
+        }
+    }
+    return NULL;
+}
+
+void pmm_free_contiguous(void *ptr, uint64_t n) {
+    if (!ptr || n == 0) {
+        return;
+    }
+    uint64_t page_index = (uint64_t)ptr / PAGE_SIZE;
+    if (page_index >= total_pages) {
+        return;
+    }
+    for (uint64_t j = 0; j < n && page_index + j < total_pages; j++) {
+        if (bitmap_test(page_index + j)) {
+            bitmap_clear(page_index + j);
+            used_pages--;
+        }
+    }
+}
+
 void pmm_free_page(void *ptr) {
     uint64_t page_index = (uint64_t)ptr / PAGE_SIZE;
     if (page_index < total_pages && bitmap_test(page_index)) {

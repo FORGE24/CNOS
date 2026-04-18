@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#define MAX_COMMAND_LEN 128
+#define MAX_COMMAND_LEN 512
 
 /* 初始化 Shell */
 void shell_init();

@@ -42,6 +42,8 @@ set(KERNEL_C
     kernel/drivers/vga.c
     kernel/drivers/serial.c
     kernel/drivers/pci.c
+    kernel/drivers/ide.c
+    kernel/fs/cnos/cnos_ext2_vol.c
     kernel/process.c
 )
 

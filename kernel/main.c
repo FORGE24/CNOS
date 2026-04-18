@@ -10,6 +10,8 @@
 #include "fs/vfs.h"
 #include "drivers/vga.h"
 #include "drivers/serial.h"
+#include "drivers/ide.h"
+#include "fs/cnos/cnos_ext2_vol.h"
 
 void putchar(char c) {
     vga_putchar(c);
@@ -68,6 +70,8 @@ void kernel_main(uint64_t mbi_phys, uint64_t boot_magic) {
 
     pmm_init(mbi_phys);
     vmm_init();
+    ide_init();
+    cnos_vol_init();
     vfs_init();
 
     process_init();
