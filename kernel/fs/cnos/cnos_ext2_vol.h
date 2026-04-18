@@ -36,6 +36,9 @@ int cnos_vol_attach_ide(uint8_t drive);
 
 int cnos_ext2_format(const cnos_vol_t *v);
 int cnos_ext2_ls(const cnos_vol_t *v);
+int cnos_ext2_stat_file(const cnos_vol_t *v, const char *name, uint32_t *out_size);
+int cnos_ext2_read_file_range(const cnos_vol_t *v, const char *name, uint32_t offset, void *buf,
+                              size_t buf_sz, size_t *out_len);
 int cnos_ext2_read_file(const cnos_vol_t *v, const char *name, char *buf, size_t buf_sz,
                         size_t *out_len);
 int cnos_ext2_write_file(const cnos_vol_t *v, const char *name, const char *data, size_t len);

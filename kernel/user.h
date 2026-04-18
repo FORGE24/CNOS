@@ -1,7 +1,11 @@
 #ifndef KERNEL_USER_H
 #define KERNEL_USER_H
 
+#include <stdint.h>
 #include "isr.h"
+
+/** ring 3 嵌入式任务 PID（跳入用户前由 user.c 设置） */
+extern uint64_t cnos_active_user_pid;
 
 void user_run_embedded_hello(void);
 

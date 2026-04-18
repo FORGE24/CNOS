@@ -5,15 +5,44 @@
 // cnos_sys_write / cnos_write：成功返回已写字节数（≥0）；失败返回负数（见 cnos/syscall、cnos/errno）。
 
 extern "C" fn cnos_sys_write(fd: int, buf: int, len: int) -> int
+extern "C" fn cnos_sys_read(fd: int, buf: int, len: int) -> int
 extern "C" fn cnos_sys_exit(code: int) -> int
+extern "C" fn cnos_sys_getpid() -> int
+extern "C" fn cnos_sys_uptime_ticks() -> int
+extern "C" fn cnos_sys_open(path: int, flags: int) -> int
+extern "C" fn cnos_sys_close(fd: int) -> int
 
-// 写到文件描述符 fd（当前内核仅 fd==1 控制台）
+// 写到文件描述符 fd（1=stdout，2=stderr）
 fn cnos_write(fd: int, ptr: int, len: int) -> int {
     return cnos_sys_write(fd, ptr, len)
 }
 
 fn cnos_write_stdout(ptr: int, len: int) -> int {
     return cnos_sys_write(1, ptr, len)
+}
+
+fn cnos_write_stderr(ptr: int, len: int) -> int {
+    return cnos_sys_write(2, ptr, len)
+}
+
+fn cnos_read(fd: int, ptr: int, len: int) -> int {
+    return cnos_sys_read(fd, ptr, len)
+}
+
+fn cnos_getpid() -> int {
+    return cnos_sys_getpid()
+}
+
+fn cnos_uptime_ticks() -> int {
+    return cnos_sys_uptime_ticks()
+}
+
+fn cnos_open(path: int, flags: int) -> int {
+    return cnos_sys_open(path, flags)
+}
+
+fn cnos_close(fd: int) -> int {
+    return cnos_sys_close(fd)
 }
 
 // 退出进程（不返回用户态）

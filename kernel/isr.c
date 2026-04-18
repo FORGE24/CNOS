@@ -10,6 +10,10 @@
 #include "syscall_abi.h"
 #include "errno.h"
 #include "vmm.h"
+#include "clock.h"
+#include "user_fd.h"
+
+volatile uint64_t cnos_kernel_ticks = 0;
 
 /* 键盘扫描码表 (简化版) */
 static const char scancode_ascii[] = {
@@ -51,6 +55,7 @@ void isr_handler(struct registers *regs) {
     } else if (regs->int_no >= 32 && regs->int_no <= 47) {
         /* 处理 IRQ */
         if (regs->int_no == 32) { /* IRQ 0: 时钟 */
+            cnos_kernel_ticks++;
             schedule();
         } else if (regs->int_no == 33) { /* IRQ 1: 键盘 */
             uint8_t scancode = inb(0x60);
@@ -90,7 +95,7 @@ void isr_handler(struct registers *regs) {
             uint64_t buf_addr = regs->rsi;
             size_t len = (size_t)regs->rdx;
 
-            if (fd != 1) {
+            if (fd != 1 && fd != 2) {
                 syscall_ret(regs, -EBADF);
                 break;
             }
@@ -98,7 +103,7 @@ void isr_handler(struct registers *regs) {
                 syscall_ret(regs, 0);
                 break;
             }
-            if (len > CNOS_SYSCALL_MAX_WRITE_BYTES) {
+            if (len > CNOS_SYSCALL_MAX_IO_BYTES) {
                 syscall_ret(regs, -EINVAL);
                 break;
             }
@@ -114,6 +119,55 @@ void isr_handler(struct registers *regs) {
             syscall_ret(regs, (int64_t)len);
             break;
         }
+
+        case CNOS_SYS_GETPID:
+            syscall_ret(regs, (int64_t)cnos_active_user_pid);
+            break;
+
+        case CNOS_SYS_UPTIME_TICKS:
+            syscall_ret(regs, (int64_t)cnos_kernel_ticks);
+            break;
+
+        case CNOS_SYS_READ: {
+            int fd = (int)regs->rdi;
+            uint64_t buf_addr = regs->rsi;
+            size_t len = (size_t)regs->rdx;
+
+            if (fd == 0) {
+                if (len == 0) {
+                    syscall_ret(regs, 0);
+                    break;
+                }
+                if (len > CNOS_SYSCALL_MAX_IO_BYTES) {
+                    syscall_ret(regs, -EINVAL);
+                    break;
+                }
+                if (!vmm_user_range_writable(buf_addr, len)) {
+                    syscall_ret(regs, -EFAULT);
+                    break;
+                }
+                syscall_ret(regs, 0);
+                break;
+            }
+            if (fd == 1 || fd == 2) {
+                syscall_ret(regs, -EBADF);
+                break;
+            }
+            if (fd >= 3) {
+                syscall_ret(regs, user_fd_sys_read(fd, buf_addr, len));
+                break;
+            }
+            syscall_ret(regs, -EBADF);
+            break;
+        }
+
+        case CNOS_SYS_OPEN:
+            syscall_ret(regs, user_fd_sys_open(regs->rdi, (int)regs->rsi));
+            break;
+
+        case CNOS_SYS_CLOSE:
+            syscall_ret(regs, user_fd_sys_close((int)regs->rdi));
+            break;
 
         default:
             syscall_ret(regs, -ENOSYS);

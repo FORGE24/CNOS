@@ -14,6 +14,9 @@ proc_t *get_current_process() {
 void process_init() {
     for (int i = 0; i < MAX_TASKS; i++) {
         sched.tasks[i].state = PROC_STATE_FREE;
+        sched.tasks[i].sender_queue = NULL;
+        sched.tasks[i].next_in_queue = NULL;
+        sched.tasks[i].msg_pending = 0;
     }
 
     /* 初始化内核主进程 (PID 0) */
@@ -21,9 +24,21 @@ void process_init() {
     kernel_proc->pid = 0;
     kernel_proc->state = PROC_STATE_RUNNING;
     kernel_proc->pml4_phys = vmm_get_current_pml4();
-    
+    kernel_proc->sender_queue = NULL;
+    kernel_proc->next_in_queue = NULL;
+    kernel_proc->msg_pending = 0;
+
     sched.current_task_idx = 0;
     sched.task_count = 1;
+}
+
+proc_t *process_find_by_pid(uint64_t pid) {
+    for (int i = 0; i < MAX_TASKS; i++) {
+        if (sched.tasks[i].state != PROC_STATE_FREE && sched.tasks[i].pid == pid) {
+            return &sched.tasks[i];
+        }
+    }
+    return NULL;
 }
 
 proc_t *process_create(void (*entry)()) {
@@ -32,7 +47,10 @@ proc_t *process_create(void (*entry)()) {
             proc_t *p = &sched.tasks[i];
             p->pid = (uint64_t)i;
             p->state = PROC_STATE_READY;
-            
+            p->sender_queue = NULL;
+            p->next_in_queue = NULL;
+            p->msg_pending = 0;
+
             /* 分配内核栈 */
             p->stack_base = (uint8_t *)pmm_alloc_page();
             uint64_t *stack_top = (uint64_t *)(p->stack_base + 4096);

@@ -421,6 +421,116 @@ int cnos_ext2_format(const cnos_vol_t *v) {
     return 0;
 }
 
+int cnos_ext2_stat_file(const cnos_vol_t *v, const char *name, uint32_t *out_size) {
+    if (!name || !out_size) {
+        return -1;
+    }
+    struct ext2_super_block sb;
+    if (read_super(v, &sb) != 0) {
+        return -1;
+    }
+    (void)sb;
+    struct ext2_inode ir;
+    if (read_inode(v, 2u, &ir) != 0) {
+        return -1;
+    }
+    uint8_t dblk[CNOS_BLK];
+    if (vol_read_blk(v, ir.i_block[0], dblk) != 0) {
+        return -1;
+    }
+    uint32_t fino = 0u;
+    if (!find_in_root(dblk, name, &fino) || fino == 0u) {
+        return -1;
+    }
+    struct ext2_inode fi;
+    if (read_inode(v, fino, &fi) != 0) {
+        return -1;
+    }
+    if ((fi.i_mode & 0xF000u) != 0x8000u) {
+        return -1;
+    }
+    *out_size = fi.i_size;
+    return 0;
+}
+
+int cnos_ext2_read_file_range(const cnos_vol_t *v, const char *name, uint32_t offset, void *buf,
+                              size_t buf_sz, size_t *out_len) {
+    if (!name || !buf || !out_len || buf_sz == 0u) {
+        return -1;
+    }
+    struct ext2_super_block sb;
+    if (read_super(v, &sb) != 0) {
+        return -1;
+    }
+    (void)sb;
+    struct ext2_inode ir;
+    if (read_inode(v, 2u, &ir) != 0) {
+        return -1;
+    }
+    uint8_t dblk[CNOS_BLK];
+    if (vol_read_blk(v, ir.i_block[0], dblk) != 0) {
+        return -1;
+    }
+    uint32_t fino = 0u;
+    if (!find_in_root(dblk, name, &fino) || fino == 0u) {
+        return -1;
+    }
+    struct ext2_inode fi;
+    if (read_inode(v, fino, &fi) != 0) {
+        return -1;
+    }
+    if ((fi.i_mode & 0xF000u) != 0x8000u) {
+        return -1;
+    }
+    uint32_t isize = fi.i_size;
+    if (offset >= isize) {
+        *out_len = 0;
+        return 0;
+    }
+    uint32_t maxcopy = isize - offset;
+    if (maxcopy > buf_sz) {
+        maxcopy = (uint32_t)buf_sz;
+    }
+    uint32_t nblk = (fi.i_size + CNOS_BLK - 1u) / CNOS_BLK;
+    if (nblk > 12u) {
+        return -1;
+    }
+
+    uint32_t file_cursor = 0;
+    size_t copied = 0;
+    uint8_t *bout = (uint8_t *)buf;
+
+    uint32_t i;
+    for (i = 0u; i < nblk && file_cursor < fi.i_size && copied < maxcopy; i++) {
+        uint32_t bn = fi.i_block[i];
+        if (bn == 0u) {
+            break;
+        }
+        uint8_t tmp[CNOS_BLK];
+        if (vol_read_blk(v, bn, tmp) != 0) {
+            return -1;
+        }
+        uint32_t blk_len = CNOS_BLK;
+        if (file_cursor + blk_len > fi.i_size) {
+            blk_len = fi.i_size - file_cursor;
+        }
+        uint32_t j;
+        for (j = 0u; j < blk_len && copied < maxcopy; j++) {
+            uint32_t abs = file_cursor + j;
+            if (abs < offset) {
+                continue;
+            }
+            bout[copied++] = tmp[j];
+            if (copied >= maxcopy) {
+                break;
+            }
+        }
+        file_cursor += blk_len;
+    }
+    *out_len = copied;
+    return 0;
+}
+
 int cnos_ext2_ls(const cnos_vol_t *v) {
     struct ext2_super_block sb;
     if (read_super(v, &sb) != 0) {
@@ -464,64 +574,7 @@ int cnos_ext2_ls(const cnos_vol_t *v) {
 
 int cnos_ext2_read_file(const cnos_vol_t *v, const char *name, char *buf, size_t buf_sz,
                         size_t *out_len) {
-    if (!name || !buf || !out_len || buf_sz == 0u) {
-        return -1;
-    }
-    struct ext2_super_block sb;
-    if (read_super(v, &sb) != 0) {
-        return -1;
-    }
-    (void)sb;
-    struct ext2_inode ir;
-    if (read_inode(v, 2u, &ir) != 0) {
-        return -1;
-    }
-    uint8_t dblk[CNOS_BLK];
-    if (vol_read_blk(v, ir.i_block[0], dblk) != 0) {
-        return -1;
-    }
-    uint32_t fino = 0u;
-    if (!find_in_root(dblk, name, &fino) || fino == 0u) {
-        return -1;
-    }
-    struct ext2_inode fi;
-    if (read_inode(v, fino, &fi) != 0) {
-        return -1;
-    }
-    if ((fi.i_mode & 0xF000u) != 0x8000u) {
-        return -1;
-    }
-    uint32_t maxread = fi.i_size;
-    if (maxread > buf_sz) {
-        maxread = (uint32_t)buf_sz;
-    }
-    uint32_t nblk = (fi.i_size + CNOS_BLK - 1u) / CNOS_BLK;
-    if (nblk > 12u) {
-        return -1;
-    }
-    uint32_t i;
-    uint32_t off = 0u;
-    for (i = 0u; i < nblk && off < maxread; i++) {
-        uint32_t bn = fi.i_block[i];
-        if (bn == 0u) {
-            break;
-        }
-        uint8_t tmp[CNOS_BLK];
-        if (vol_read_blk(v, bn, tmp) != 0) {
-            return -1;
-        }
-        uint32_t chunk = CNOS_BLK;
-        if (off + chunk > fi.i_size) {
-            chunk = fi.i_size - off;
-        }
-        if (off + chunk > maxread) {
-            chunk = maxread - off;
-        }
-        cnos_memcpy(buf + off, tmp, chunk);
-        off += chunk;
-    }
-    *out_len = (size_t)off;
-    return 0;
+    return cnos_ext2_read_file_range(v, name, 0u, buf, buf_sz, out_len);
 }
 
 static uint32_t alloc_block(uint8_t *bb, uint32_t tb) {

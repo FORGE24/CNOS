@@ -6,6 +6,7 @@
 #include "drivers/pci.h"
 #include "drivers/ide.h"
 #include "fs/cnos/cnos_ext2_vol.h"
+#include "fs/vfs.h"
 #include "user.h"
 #include "power.h"
 #include "console.h"
@@ -136,14 +137,16 @@ void shell_execute(const char *cmd) {
         puts("  poweroff          - Soft power off (ACPI / QEMU, kernel I/O)\n");
         puts("  shutdown          - Same as poweroff\n");
         puts("  mkdisk <sectors>  - RAM disk (512B sectors, even count, min 512)\n");
-        puts("  vol               - Show current volume\n");
+        puts("  vol               - Show current volume + VFS mount state\n");
+        puts("  mount             - Mount current volume as VFS root (ext2)\n");
+        puts("  umount            - Unmount VFS root (volume stays attached)\n");
         puts("  format            - Create minimal ext2 on current volume\n");
-        puts("  ls                - List root (ext2)\n");
-        puts("  read <name>       - Read file from ext2 root\n");
-        puts("  write <name> <text> - Write regular file under ext2 root\n");
+        puts("  ls                - List root via VFS (needs mount)\n");
+        puts("  read <name>       - Read file via VFS (needs mount)\n");
+        puts("  write <name> <text> - Write file via VFS (needs mount)\n");
         puts("  ide               - IDENTIFY primary IDE master/slave\n");
         puts("  attach ide <0|1>  - Use IDE master/slave as volume\n");
-        puts("  detach            - Release volume\n");
+        puts("  detach            - Unmount VFS if needed, release volume\n");
         puts("  lspci             - PCI devices\n");
         puts("  ps                - Fake process list\n");
         puts("  hello             - Run embedded ring-3 user demo (C)\n");
@@ -188,11 +191,17 @@ void shell_execute(const char *cmd) {
         }
         puts("mkdisk: RAM volume ");
         puts_dec(bytes);
-        puts(" bytes\n");
+        puts(" bytes");
+        if (vfs_mount_root() == VFS_ERR_NONE) {
+            puts(", VFS mounted\n");
+        } else {
+            puts("\n");
+        }
     } else if (strcmp(verb, "vol") == 0) {
         const cnos_vol_t *v = cnos_vol_current();
         if (!v) {
             puts("No volume attached.\n");
+            puts("VFS root: not mounted\n");
             return;
         }
         if (v->type == CNOS_VOL_RAM) {
@@ -206,35 +215,43 @@ void shell_execute(const char *cmd) {
             puts_dec((uint64_t)v->size_bytes);
             puts(" bytes\n");
         }
+        puts("VFS root: ");
+        puts(vfs_is_mounted() ? "mounted (ext2)\n" : "not mounted\n");
+    } else if (strcmp(verb, "mount") == 0) {
+        int mr = vfs_mount_root();
+        if (mr == VFS_ERR_NONE) {
+            puts("mount: ext2 root ok\n");
+        } else if (mr == VFS_ERR_NOENT) {
+            puts("mount: no volume (mkdisk / attach ide first)\n");
+        } else {
+            puts("mount: failed\n");
+        }
+    } else if (strcmp(verb, "umount") == 0) {
+        vfs_umount_root();
+        puts("umount: ok\n");
     } else if (strcmp(verb, "detach") == 0) {
+        vfs_umount_root();
         cnos_vol_detach_all();
         puts("Volume detached.\n");
     } else if (strcmp(verb, "format") == 0) {
-        const cnos_vol_t *v = cnos_vol_current();
-        if (!v) {
+        int fr = vfs_format();
+        if (fr == VFS_ERR_NOENT) {
             puts("format: no volume\n");
             return;
         }
-        if (cnos_ext2_format(v) != 0) {
+        if (fr != VFS_ERR_NONE) {
             puts("format: failed\n");
             return;
         }
         puts("format: ext2 created (single group, 1024-byte blocks)\n");
     } else if (strcmp(verb, "ls") == 0) {
-        const cnos_vol_t *v = cnos_vol_current();
-        if (!v) {
-            puts("ls: no volume\n");
-            return;
-        }
-        if (cnos_ext2_ls(v) != 0) {
+        int lr = vfs_ls();
+        if (lr == VFS_ERR_NOTMOUNTED) {
+            puts("ls: VFS not mounted (try: mount)\n");
+        } else if (lr != VFS_ERR_NONE) {
             puts("ls: failed\n");
         }
     } else if (strcmp(verb, "read") == 0) {
-        const cnos_vol_t *v = cnos_vol_current();
-        if (!v) {
-            puts("read: no volume\n");
-            return;
-        }
         skip_sp(&p);
         if (*p == '\0') {
             puts("read: usage read <name>\n");
@@ -248,7 +265,12 @@ void shell_execute(const char *cmd) {
         name[ni] = '\0';
         char out[4096];
         size_t n = 0;
-        if (cnos_ext2_read_file(v, name, out, sizeof out, &n) != 0) {
+        int rr = vfs_read_file(name, out, sizeof out, &n);
+        if (rr == VFS_ERR_NOTMOUNTED) {
+            puts("read: VFS not mounted (try: mount)\n");
+            return;
+        }
+        if (rr != VFS_ERR_NONE) {
             puts("read: not found or not a regular file\n");
             return;
         }
@@ -263,11 +285,6 @@ void shell_execute(const char *cmd) {
         }
         putchar('\n');
     } else if (strcmp(verb, "write") == 0) {
-        const cnos_vol_t *v = cnos_vol_current();
-        if (!v) {
-            puts("write: no volume\n");
-            return;
-        }
         skip_sp(&p);
         char name[128];
         int ni = 0;
@@ -280,7 +297,12 @@ void shell_execute(const char *cmd) {
             puts("write: usage write <name> <text...>\n");
             return;
         }
-        if (cnos_ext2_write_file(v, name, p, strlen_local(p)) != 0) {
+        int wr = vfs_write_file(name, p, strlen_local(p));
+        if (wr == VFS_ERR_NOTMOUNTED) {
+            puts("write: VFS not mounted (try: mount)\n");
+            return;
+        }
+        if (wr != VFS_ERR_NONE) {
             puts("write: failed\n");
             return;
         }
@@ -315,7 +337,12 @@ void shell_execute(const char *cmd) {
                 puts("attach: IDE failed (no disk or size too small)\n");
                 return;
             }
-            puts("attach: IDE volume ready\n");
+            puts("attach: IDE volume ready");
+            if (vfs_mount_root() == VFS_ERR_NONE) {
+                puts(", VFS mounted\n");
+            } else {
+                puts("\n");
+            }
         } else {
             puts("attach: only 'attach ide <0|1>' supported\n");
         }

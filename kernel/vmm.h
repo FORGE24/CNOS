@@ -40,4 +40,7 @@ void vmm_grant_user_2mb_region(uint64_t virt);
  */
 int vmm_user_range_readable(uint64_t addr, size_t len);
 
+/** 同上，且叶子页须含 PAGE_WRITE（供 read 等写入用户缓冲区校验） */
+int vmm_user_range_writable(uint64_t addr, size_t len);
+
 #endif

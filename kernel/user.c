@@ -1,6 +1,7 @@
 /* kernel/user.c - Ring 3 用户态跳转与嵌入的 hello 程序 */
 
 #include "user.h"
+#include "user_fd.h"
 #include "elf_load.h"
 #include "pmm.h"
 #include "vmm.h"
@@ -8,6 +9,8 @@
 #include <stdint.h>
 
 extern void puts(const char *s);
+
+uint64_t cnos_active_user_pid = 2;
 
 extern char _binary_hello_bin_start[];
 extern char _binary_hello_bin_end[];
@@ -64,6 +67,8 @@ static void user_run_embedded_elf(const uint8_t *blob_start, const uint8_t *blob
         return;
     }
 
+    cnos_active_user_pid = 2;
+    user_fd_reset();
     puts("[kernel] jumping to user ("); puts(tag); puts(", ring 3)...\n");
     user_jump_to_ring3(entry, USER_STACK_TOP);
 }

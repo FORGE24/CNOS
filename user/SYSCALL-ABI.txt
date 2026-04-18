@@ -77,22 +77,71 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
     **用途**：向打开的文件描述符写入缓冲区。
 
     **参数**：  
-      **RDI** = **fd**（当前内核仅处理 **fd == 1** 控制台输出）  
+      **RDI** = **fd**（**fd == 1** stdout、**fd == 2** stderr，均镜像控制台）  
       **RSI** = 缓冲区 **用户空间** 虚拟地址  
       **RDX** = 写入长度（字节）
 
     **返回值**：**RAX** = 实际写入字节数（成功）；**0** 表示 **len==0**。  
-    失败时 **RAX** = **-errno**：**-EBADF**（fd 非 1）、**-EINVAL**（**len** 超过 **CNOS_SYSCALL_MAX_WRITE_BYTES**）、**-EFAULT**（缓冲区不在用户可读映射内或长度溢出）、**-ENOSYS**（保留给其他错误路径）。  
+    失败时 **RAX** = **-errno**：**-EBADF**（fd 非 1 且非 2）、**-EINVAL**（**len** 超过 **CNOS_SYSCALL_MAX_IO_BYTES**）、**-EFAULT**（缓冲区不在用户可读映射内或长度溢出）、**-ENOSYS**（保留给其他错误路径）。  
 
     **权限**：缓冲区 **[RSI, RSI+RDX)** 必须通过页表校验为 **PAGE_PRESENT | PAGE_USER**（参见 **vmm_user_range_readable**），防止将 **仅内核可映射** 的 VA 当作用户缓冲区误读。
+
+  ----
+  **CNOS_SYS_GETPID（2）**
+
+    **用途**：返回当前用户任务 PID（嵌入式 hello 固定为 **2**，由内核 **cnos_active_user_pid** 提供）。
+
+    **参数**：无（忽略 **RDI** 等）。
+
+    **返回值**：**RAX** = PID（非负）。
+
+  ----
+  **CNOS_SYS_READ（3）**
+
+    **用途**：从打开的文件描述符读入缓冲区。
+
+    **参数**：**RDI** = **fd**；**RSI** = 用户缓冲区 VA；**RDX** = 最大读取长度。
+
+    **行为**：  
+      **fd == 0**（stdin）：无输入设备时返回 **0**（EOF）。  
+      **fd == 1 或 2**：**-EBADF**（stdout/stderr 只写）。  
+      **fd ≥ 3**：由 **`open`** 打开的根目录普通文件（VFS 已挂载、内核记录路径与读游标）；读到文件尾后返回 **0**。  
+    **-EINVAL** / **-EFAULT** / **-EIO**：越界长度、缓冲区不可写、底层读失败等。
+
+  ----
+  **CNOS_SYS_UPTIME_TICKS（4）**
+
+    **用途**：单调 tick 计数（每次 **IRQ0** 时钟中断递增），用于简单计时/演示。
+
+    **参数**：无。
+
+    **返回值**：**RAX** = **cnos_kernel_ticks**（自启动以来递增）。
+
+  ----
+  **CNOS_SYS_OPEN（5）**
+
+    **用途**：在 **VFS 根** 打开普通文件（仅 **ext2** 根目录一层文件名，无 `/` 子路径）。
+
+    **参数**：**RDI** = 路径 **C 字符串** 的用户 VA（以 `\\0` 结尾）；**RSI** = flags（预留，只读打开传 **0**）。
+
+    **返回值**：**RAX** = **fd**（≥ **3**）；**-EINVAL**（VFS 未挂载等）、**-ENOENT**、**-EMFILE**、**-EFAULT**。
+
+  ----
+  **CNOS_SYS_CLOSE（6）**
+
+    **用途**：关闭 **fd ≥ 3** 由 **open** 获得的描述符。
+
+    **参数**：**RDI** = fd。
+
+    **返回值**：**RAX** = **0**；**-EBADF**。
 
 --------------------------------------------------------------------
 4. 参考映射（便于对照）
 --------------------------------------------------------------------
 
-  **C（内联汇编）**：见 **user/hello.c**（**SYS_WRITE** 使用 **a/D/S/d** 约束对应 **rax/rdi/rsi/rdx**）。
+  **C（内联汇编）**：见 **user/hello.c**。
 
-  **汇编桩**：**user/cnos-rt/cnos_syscalls.asm** — **cnos_sys_write** / **cnos_sys_exit**。
+  **汇编桩**：**user/cnos-rt/cnos_syscalls.asm** — **cnos_sys_***（含 open / close）。
 
   **Slime STD**：**import "cnos/io"**；编号 **cnos/constants**；errno **cnos/errno**；返回值解析 **cnos/syscall**。（**SYS_*** 与 **CNOS_SYS_*** 数值一致。）
 

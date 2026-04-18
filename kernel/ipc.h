@@ -20,8 +20,9 @@ typedef struct {
 } message_t;
 
 /* IPC 错误码 */
-#define IPC_OK       0
-#define IPC_ERROR   -1
+#define IPC_OK           0
+#define IPC_ERROR       -1
+#define IPC_WOULD_BLOCK -2 /* Receive 尚无消息，已进入等待状态（协作式下由后续 Send 唤醒） */
 
 /* 
  * 内核 IPC 核心函数

@@ -4,7 +4,10 @@
 #define KERNEL_ERRNO_H
 
 #define EPERM   1
+#define ENOENT  2
+#define EIO     5
 #define EBADF   9
+#define EMFILE  24
 #define EINVAL  22
 #define EFAULT  14
 #define ENOSYS  38

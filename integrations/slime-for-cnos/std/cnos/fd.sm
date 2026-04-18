@@ -1,4 +1,4 @@
-// 文件描述符常量（POSIX 惯例；内核 SYS_WRITE 当前仅处理 fd == 1）
+// 文件描述符（POSIX 惯例）：0 stdin；1/2 stdout/stderr；≥3 由 SYS_OPEN 分配（READ 须 VFS mount）
 
 const FD_STDIN  = 0
 const FD_STDOUT = 1

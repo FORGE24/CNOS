@@ -5,61 +5,114 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* 
- * 同步 IPC 核心逻辑：
- * - 发送 (Send)：如果接收者正在等待接收 (Receiving)，则直接将消息拷贝给接收者并唤醒它。
- *             否则，将发送者加入接收者的等待队列 (Sender Queue) 并阻塞发送者。
- * - 接收 (Receive)：如果等待队列中有发送者，则从队列头部取出一个发送者的消息并唤醒它。
- *               否则，将当前接收者设为等待接收状态 (Receiving) 并阻塞它。
+/*
+ * 同步 IPC：Send / Receive。尚未接真实阻塞与抢占时：
+ * - Receive 可先返回 IPC_WOULD_BLOCK 并将当前进程标为 RECEIVING；
+ * - 随后 Send 可向 RECEIVING 目标投递并置 msg_pending，或把发送者挂入 sender_queue。
  */
 
-/* 辅助函数：将数据从发送者进程拷贝到接收者进程的消息缓冲区 */
-static void msg_copy(proc_t *src, proc_t *dest, message_t *msg) {
-    /* 简单的结构体内存拷贝 */
+static void msg_copy_to_buffer(proc_t *dest, proc_t *src, const message_t *msg) {
     dest->msg_buffer.sender = src->pid;
     dest->msg_buffer.type = msg->type;
     uint8_t *s = (uint8_t *)msg->payload;
     uint8_t *d = (uint8_t *)dest->msg_buffer.payload;
-    for (int i = 0; i < MAX_MSG_PAYLOAD; i++) d[i] = s[i];
+    for (int i = 0; i < MAX_MSG_PAYLOAD; i++) {
+        d[i] = s[i];
+    }
+}
+
+static void msg_copy_out(message_t *out, const proc_t *from) {
+    out->sender = from->msg_buffer.sender;
+    out->type = from->msg_buffer.type;
+    uint8_t *s = (uint8_t *)from->msg_buffer.payload;
+    uint8_t *d = (uint8_t *)out->payload;
+    for (int i = 0; i < MAX_MSG_PAYLOAD; i++) {
+        d[i] = s[i];
+    }
+}
+
+static void stash_outgoing(proc_t *sender, const message_t *msg) {
+    msg_copy_to_buffer(sender, sender, msg);
+}
+
+static void sender_enqueue(proc_t *dest, proc_t *sender) {
+    sender->next_in_queue = dest->sender_queue;
+    dest->sender_queue = sender;
+}
+
+/* src_pid==0 表示任意发送者；否则取队列中首个匹配的 PID */
+static proc_t *sender_dequeue(proc_t *recv, uint64_t src_pid) {
+    proc_t **pp = &recv->sender_queue;
+    while (*pp) {
+        proc_t *s = *pp;
+        if (src_pid == 0 || s->pid == src_pid) {
+            *pp = s->next_in_queue;
+            s->next_in_queue = NULL;
+            return s;
+        }
+        pp = &s->next_in_queue;
+    }
+    return NULL;
 }
 
 int ipc_send(uint64_t dest_pid, message_t *msg) {
+    if (!msg) {
+        return IPC_ERROR;
+    }
+
     proc_t *current = get_current_process();
-    /* 此处需要根据 dest_pid 找到对应的进程控制块 (待实现进程表查询) */
-    proc_t *dest = NULL; /* TODO: find_proc_by_pid(dest_pid) */
-    
-    if (!dest) return IPC_ERROR;
+    proc_t *dest = process_find_by_pid(dest_pid);
+
+    if (!dest || dest->state == PROC_STATE_FREE) {
+        return IPC_ERROR;
+    }
+    if (dest == current) {
+        return IPC_ERROR;
+    }
 
     if (dest->state == PROC_STATE_RECEIVING) {
-        /* 接收者正在等待消息，直接进行零拷贝/内存拷贝并唤醒接收者 */
-        msg_copy(current, dest, msg);
+        msg_copy_to_buffer(dest, current, msg);
+        dest->msg_pending = 1;
         dest->state = PROC_STATE_READY;
-        /* TODO: 触发调度器切换 (唤醒目标进程) */
-    } else {
-        /* 接收者忙碌，将发送者阻塞并加入接收者的等待队列 */
-        current->state = PROC_STATE_SENDING;
-        /* TODO: 加入 dest->sender_queue 链表头部或尾部 */
-        /* TODO: 触发调度器切换 (让出 CPU) */
+        return IPC_OK;
     }
-    
+
+    stash_outgoing(current, msg);
+    current->state = PROC_STATE_SENDING;
+    sender_enqueue(dest, current);
     return IPC_OK;
 }
 
 int ipc_receive(uint64_t src_pid, message_t *msg) {
-    proc_t *current = get_current_process();
-    
-    if (current->sender_queue) {
-        /* 如果有进程已经在等待发送消息给当前进程 */
-        /* TODO: 从 current->sender_queue 中取出第一个发送者 */
-        proc_t *sender = current->sender_queue;
-        /* TODO: 从发送者的 msg_buffer 拷贝消息到当前进程的缓冲区 */
-        sender->state = PROC_STATE_READY;
-        /* TODO: 触发调度器切换 (唤醒发送者) */
-    } else {
-        /* 没有进程在等待，阻塞当前接收进程 */
-        current->state = PROC_STATE_RECEIVING;
-        /* TODO: 触发调度器切换 (让出 CPU) */
+    if (!msg) {
+        return IPC_ERROR;
     }
-    
-    return IPC_OK;
+
+    proc_t *current = get_current_process();
+
+    if (current->msg_pending &&
+        (src_pid == 0 || current->msg_buffer.sender == src_pid)) {
+        msg_copy_out(msg, current);
+        current->msg_pending = 0;
+        if (current->state == PROC_STATE_RECEIVING) {
+            current->state = PROC_STATE_READY;
+        }
+        return IPC_OK;
+    }
+
+    proc_t *sender = sender_dequeue(current, src_pid);
+    if (sender) {
+        msg_copy_out(msg, sender);
+        sender->state = PROC_STATE_READY;
+        return IPC_OK;
+    }
+
+    current->state = PROC_STATE_RECEIVING;
+    return IPC_WOULD_BLOCK;
+}
+
+int ipc_reply(uint64_t dest_pid, message_t *msg) {
+    (void)dest_pid;
+    (void)msg;
+    return IPC_ERROR;
 }

@@ -55,6 +55,7 @@ set(KERNEL_C
     kernel/process.c
     kernel/elf_load.c
     kernel/user.c
+    kernel/user_fd.c
 )
 
 set(USER_HELLO_ELF ${CMAKE_BINARY_DIR}/user/hello.elf)

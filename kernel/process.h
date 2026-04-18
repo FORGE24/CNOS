@@ -34,6 +34,7 @@ typedef struct proc {
     message_t msg_buffer;
     struct proc *next_in_queue;
     struct proc *sender_queue;
+    int msg_pending;            /* msg_buffer 内有一条可待 Receive 取走的消息 */
 } proc_t;
 
 typedef struct {
@@ -43,6 +44,7 @@ typedef struct {
 } scheduler_t;
 
 proc_t *get_current_process(void);
+proc_t *process_find_by_pid(uint64_t pid);
 void process_init(void);
 proc_t *process_create(void (*entry)(void));
 void schedule(void);

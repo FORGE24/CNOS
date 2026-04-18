@@ -32,7 +32,7 @@ void vmm_init() {
      */
 }
 
-static int vmm_page_user_readable(uint64_t virt) {
+static int vmm_page_has_flags(uint64_t virt, uint64_t need_pte_flags) {
     uint64_t *pml4 = (uint64_t *)vmm_get_current_pml4();
     uint64_t pml4e = pml4[PML4_INDEX(virt)];
     if (!(pml4e & PAGE_PRESENT)) {
@@ -49,11 +49,21 @@ static int vmm_page_user_readable(uint64_t virt) {
         return 0;
     }
     if (pde & PD_PS) {
-        return (pde & PAGE_USER) != 0;
+        uint64_t m = PAGE_PRESENT | PAGE_USER | need_pte_flags;
+        return (pde & m) == m;
     }
     uint64_t *pt = (uint64_t *)(pde & ~0xFFFULL);
     uint64_t pte = pt[PT_INDEX(virt)];
-    return (pte & PAGE_PRESENT) && (pte & PAGE_USER);
+    uint64_t m = PAGE_PRESENT | PAGE_USER | need_pte_flags;
+    return (pte & m) == m;
+}
+
+static int vmm_page_user_readable(uint64_t virt) {
+    return vmm_page_has_flags(virt, 0);
+}
+
+static int vmm_page_user_writable(uint64_t virt) {
+    return vmm_page_has_flags(virt, PAGE_WRITE);
 }
 
 int vmm_user_range_readable(uint64_t addr, size_t len) {
@@ -68,6 +78,24 @@ int vmm_user_range_readable(uint64_t addr, size_t len) {
     uint64_t last_page = last & ~(uint64_t)(PAGE_SIZE - 1);
     for (uint64_t pg = first_page; pg <= last_page; pg += PAGE_SIZE) {
         if (!vmm_page_user_readable(pg)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int vmm_user_range_writable(uint64_t addr, size_t len) {
+    if (len == 0) {
+        return 1;
+    }
+    if (addr + len < addr) {
+        return 0;
+    }
+    uint64_t last = addr + len - 1;
+    uint64_t first_page = addr & ~(uint64_t)(PAGE_SIZE - 1);
+    uint64_t last_page = last & ~(uint64_t)(PAGE_SIZE - 1);
+    for (uint64_t pg = first_page; pg <= last_page; pg += PAGE_SIZE) {
+        if (!vmm_page_user_writable(pg)) {
             return 0;
         }
     }
