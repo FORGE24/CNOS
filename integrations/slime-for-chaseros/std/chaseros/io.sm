@@ -1,0 +1,51 @@
+// Slime CNOS STD — I/O / 进程（依赖 user/cnos-rt/chaseros_syscalls.asm 链接）
+// 使用前请设置：export SLIME_PATH=<CNOS>/integrations/slime-for-cnos/std
+// 并在外层 import "chaseros/io"
+//
+// chaseros_sys_write / chaseros_write：成功返回已写字节数（≥0）；失败返回负数（见 cnos/syscall、cnos/errno）。
+
+extern "C" fn chaseros_sys_write(fd: int, buf: int, len: int) -> int
+extern "C" fn chaseros_sys_read(fd: int, buf: int, len: int) -> int
+extern "C" fn chaseros_sys_exit(code: int) -> int
+extern "C" fn chaseros_sys_getpid() -> int
+extern "C" fn chaseros_sys_uptime_ticks() -> int
+extern "C" fn chaseros_sys_open(path: int, flags: int) -> int
+extern "C" fn chaseros_sys_close(fd: int) -> int
+
+// 写到文件描述符 fd（1=stdout，2=stderr）
+fn chaseros_write(fd: int, ptr: int, len: int) -> int {
+    return chaseros_sys_write(fd, ptr, len)
+}
+
+fn chaseros_write_stdout(ptr: int, len: int) -> int {
+    return chaseros_sys_write(1, ptr, len)
+}
+
+fn chaseros_write_stderr(ptr: int, len: int) -> int {
+    return chaseros_sys_write(2, ptr, len)
+}
+
+fn chaseros_read(fd: int, ptr: int, len: int) -> int {
+    return chaseros_sys_read(fd, ptr, len)
+}
+
+fn chaseros_getpid() -> int {
+    return chaseros_sys_getpid()
+}
+
+fn chaseros_uptime_ticks() -> int {
+    return chaseros_sys_uptime_ticks()
+}
+
+fn chaseros_open(path: int, flags: int) -> int {
+    return chaseros_sys_open(path, flags)
+}
+
+fn chaseros_close(fd: int) -> int {
+    return chaseros_sys_close(fd)
+}
+
+// 退出进程（不返回用户态）
+fn chaseros_exit(code: int) {
+    chaseros_sys_exit(code)
+}

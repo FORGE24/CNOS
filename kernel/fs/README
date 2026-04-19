@@ -17,3 +17,8 @@ kernel/fs 目录说明（已裁剪）
 整棵上游中的 **非库** 部分：`tests/`、`misc/`、`e2fsck/`、`resize/`、`debugfs/`、`doc/`、`debian/`、`po/`、`util/`、`contrib/` 等，以及顶层 `configure`、`Makefile.in`、Android 打包文件等。
 
 **未**编入 `kernel.elf` 的 `lib/ext2fs/*.c` 仍可按需从本目录加入；当前构建见仓库根 `CMakeLists.txt`。
+
+许可（与仓库根 README 一致）
+---------------------------
+- **上游 e2fsprogs 子集**（`lib/ext2fs/`、`lib/et/`、`lib/e2p/`、`include/ext2fs/`、`version.h` 等来自上游或由其生成的文件）：遵循 **上游 e2fsprogs 发布仓库** 的许可证（通常为 **GPL/LGPL**，以各文件头注释为准），**不以** 仓库根目录 Apache-2.0 的 `LICENSE` 替代。
+- **CNOS 自有**：`cnos/`、`cnaf/`、`vfs.c`、`vfs.h` 等为 **Apache-2.0**（与根 `LICENSE` 一致）。

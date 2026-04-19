@@ -19,6 +19,7 @@
 #define ATA_CMD_WRITE_PIO  0x30u
 #define ATA_CMD_IDENTIFY         0xECu
 #define ATA_CMD_IDENTIFY_PACKET  0xA1u
+#define ATA_CMD_PACKET           0xA0u
 
 #define ATA_STS_ERR        0x01u
 #define ATA_STS_DRQ        0x08u
@@ -248,4 +249,136 @@ int ide_read_sectors(uint8_t drive, uint32_t lba, uint32_t count, void *buf) {
 
 int ide_write_sectors(uint8_t drive, uint32_t lba, uint32_t count, const void *buf) {
     return ide_do_rw(drive, lba, count, (void *)buf, 1);
+}
+
+int ide_atapi_packet(uint8_t drive, const uint8_t cdb[12], int data_in, void *buf, uint32_t buf_sz,
+                     uint32_t *actual_out) {
+    if (!cdb || drive > 1u) {
+        return -1;
+    }
+    if (data_in && buf_sz > 0u && !buf) {
+        return -1;
+    }
+
+    uint16_t byte_count;
+    if (buf_sz == 0u) {
+        byte_count = 8u;
+    } else if (buf_sz > 0xFFFEu) {
+        byte_count = 0xFFFEu;
+    } else {
+        byte_count = (uint16_t)buf_sz;
+    }
+
+    ide_init();
+    if (ide_select(drive, 0) != 0) {
+        return -1;
+    }
+
+    outb(ide_base() + ATA_REG_FEATURES, 0);
+    outb(ide_base() + ATA_REG_SECCOUNT0, 0);
+    outb(ide_base() + ATA_REG_LBA0, 0);
+    outb(ide_base() + ATA_REG_LBA1, (uint8_t)(byte_count & 0xFFu));
+    outb(ide_base() + ATA_REG_LBA2, (uint8_t)(byte_count >> 8));
+    outb(ide_base() + ATA_REG_DRIVE, (uint8_t)(0xE0u | ((drive & 1u) << 4)));
+    ide_delay();
+    outb(ide_base() + ATA_REG_COMMAND, ATA_CMD_PACKET);
+    ide_delay();
+
+    if (ide_wait_drq() != 0) {
+        return -1;
+    }
+
+    for (int i = 0; i < 6; i++) {
+        uint16_t w = (uint16_t)cdb[i * 2] | ((uint16_t)cdb[i * 2 + 1] << 8);
+        outw(ide_base() + ATA_REG_DATA, w);
+    }
+
+    if (!data_in || buf_sz == 0u || !buf) {
+        for (int n = 0; n < 500000; n++) {
+            uint8_t st = inb(ide_base() + ATA_REG_STATUS);
+            if (st & ATA_STS_ERR) {
+                return -1;
+            }
+            if (!(st & ATA_STS_BSY)) {
+                if (actual_out) {
+                    *actual_out = 0;
+                }
+                return 0;
+            }
+            ide_delay();
+        }
+        return -1;
+    }
+
+    uint8_t *bp = (uint8_t *)buf;
+    uint32_t left = buf_sz;
+    uint32_t got = 0;
+    while (left > 0u) {
+        if (ide_wait_drq() != 0) {
+            uint8_t st = inb(ide_base() + ATA_REG_STATUS);
+            if (!(st & ATA_STS_BSY) && !(st & ATA_STS_DRQ)) {
+                break;
+            }
+            return -1;
+        }
+        uint32_t chunk = left;
+        if (chunk > 2048u) {
+            chunk = 2048u;
+        }
+        for (uint32_t j = 0; j < chunk; j += 2u) {
+            uint16_t w = inw(ide_base() + ATA_REG_DATA);
+            bp[got + j] = (uint8_t)w;
+            bp[got + j + 1u] = (uint8_t)(w >> 8);
+        }
+        got += chunk;
+        left -= chunk;
+    }
+
+    if (actual_out) {
+        *actual_out = got;
+    }
+
+    (void)ide_wait_not_busy();
+    if (inb(ide_base() + ATA_REG_STATUS) & ATA_STS_ERR) {
+        return -1;
+    }
+    return 0;
+}
+
+int ide_atapi_inquiry(uint8_t drive, void *buf, uint32_t buf_sz, uint32_t *actual_out) {
+    if (!buf || buf_sz < 36u) {
+        return -1;
+    }
+    uint8_t cdb[12];
+    for (int i = 0; i < 12; i++) {
+        cdb[i] = 0;
+    }
+    cdb[0] = 0x12u; /* INQUIRY */
+    cdb[4] = (uint8_t)(buf_sz > 255u ? 255u : buf_sz);
+    return ide_atapi_packet(drive, cdb, 1, buf, buf_sz, actual_out);
+}
+
+int ide_atapi_read2048(uint8_t drive, uint32_t lba_blk, void *buf) {
+    if (!buf) {
+        return -1;
+    }
+    uint8_t cdb[12];
+    for (int i = 0; i < 12; i++) {
+        cdb[i] = 0;
+    }
+    cdb[0] = 0x28u; /* READ(10) */
+    cdb[2] = (uint8_t)((lba_blk >> 24) & 0xFFu);
+    cdb[3] = (uint8_t)((lba_blk >> 16) & 0xFFu);
+    cdb[4] = (uint8_t)((lba_blk >> 8) & 0xFFu);
+    cdb[5] = (uint8_t)(lba_blk & 0xFFu);
+    cdb[7] = 0;
+    cdb[8] = 1u; /* transfer length: 1 logical block */
+    uint32_t act = 0;
+    if (ide_atapi_packet(drive, cdb, 1, buf, 2048u, &act) != 0) {
+        return -1;
+    }
+    if (act != 2048u) {
+        return -1;
+    }
+    return 0;
 }

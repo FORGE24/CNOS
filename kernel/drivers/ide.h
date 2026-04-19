@@ -36,4 +36,19 @@ int ide_identify_packet(uint8_t drive, char model[40]);
 /* 先尝试 ATA IDENTIFY，失败再试 ATAPI；返回 0 且 *class_out 有效 */
 int ide_probe_type(uint8_t drive, char model[40], int *class_out);
 
+/*
+ * ATAPI PACKET（PIO）：发送 12 字节 CDB（SCSI/ATAPI）。
+ * data_in：1 = 设备→主机（读 INQUIRY、READ 等），0 = 无数据相（TEST UNIT READY 等）。
+ * buf / buf_sz：数据缓冲区与最大长度；无数据相时 buf 可为 NULL、buf_sz 为 0。
+ * actual_out：可选，返回实际传输字节数。
+ */
+int ide_atapi_packet(uint8_t drive, const uint8_t cdb[12], int data_in, void *buf, uint32_t buf_sz,
+                     uint32_t *actual_out);
+
+/* INQUIRY，默认取 36 字节标准响应 */
+int ide_atapi_inquiry(uint8_t drive, void *buf, uint32_t buf_sz, uint32_t *actual_out);
+
+/* READ(10)：按 2048 字节/块（CD-ROM 扇区）读取一块 */
+int ide_atapi_read2048(uint8_t drive, uint32_t lba_blk, void *buf);
+
 #endif

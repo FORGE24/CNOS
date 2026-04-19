@@ -4,7 +4,7 @@
 #include "drivers/vga.h"
 #include "drivers/pci.h"
 #include "drivers/ide.h"
-#include "fs/cnos/cnos_ext2_vol.h"
+#include "fs/chaseros/chaseros_ext2_vol.h"
 #include "fs/vfs.h"
 #include "user.h"
 #include "power.h"
@@ -25,6 +25,18 @@ extern void puts_dec(uint64_t n);
 
 static char cmd_buffer[MAX_COMMAND_LEN];
 static int cmd_len = 0;
+
+/** Shell 当前目录（绝对路径，已规范化） */
+static char g_cwd[256] = "/";
+
+static void shell_cwd_reset(void) {
+    g_cwd[0] = '/';
+    g_cwd[1] = '\0';
+}
+
+static int shell_resolve(const char *rel, char *out, size_t outsz) {
+    return vfs_resolve_path(g_cwd, rel, out, outsz);
+}
 
 static int strcmp(const char *s1, const char *s2) {
     while (*s1 && (*s1 == *s2)) {
@@ -80,6 +92,7 @@ void shell_init() {
         cmd_buffer[i] = 0;
     }
     cmd_len = 0;
+    shell_cwd_reset();
 }
 
 void shell_handle_input(char c) {
@@ -89,7 +102,7 @@ void shell_handle_input(char c) {
         shell_execute(cmd_buffer);
         cmd_len = 0;
         cmd_buffer[0] = '\0';
-        puts("CNOS> ");
+        puts("ChaserOS> ");
         return;
     }
     if (c == '\b' || c == 127) {
@@ -141,22 +154,29 @@ void shell_execute(const char *cmd) {
         puts("  poweroff          - Soft power off (ACPI / QEMU, kernel I/O)\n");
         puts("  shutdown          - Same as poweroff\n");
         puts("  mkdisk <sectors>  - RAM disk (512B sectors, even count, min 512)\n");
+        puts("  initdisk          - format + mount fresh ext2 (resets cwd to /)\n");
         puts("  vol               - Show current volume + VFS mount state\n");
         puts("  mount             - Mount current volume as VFS root (ext2)\n");
         puts("  umount            - Unmount VFS root (volume stays attached)\n");
         puts("  format            - Create minimal ext2 on current volume\n");
-        puts("  ls                - List root via VFS (needs mount)\n");
-        puts("  read <name>       - Read file via VFS (needs mount)\n");
-        puts("  write <name> <text> - Write file via VFS (needs mount)\n");
-        puts("  ide               - IDENTIFY primary IDE master/slave\n");
+        puts("  pwd               - Print current directory\n");
+        puts("  cd [path]         - Change directory (default /)\n");
+        puts("  gfl [path]        - Same as cd (go to directory)\n");
+        puts("  mkdir <path>      - Create subdirectory under cwd or absolute path\n");
+        puts("  ls [path]         - List directory (default: cwd)\n");
+        puts("  read <name>       - Read file (cwd-relative or absolute)\n");
+        puts("  write <name> <text> - Write file (cwd-relative or absolute)\n");
+        puts("  ide               - Probe ATA/ATAPI on primary IDE master/slave\n");
+        puts("  atapi inquiry <0|1> - SCSI INQUIRY (CD-ROM ATAPI)\n");
+        puts("  atapi read <0|1> <lba> - READ(10) one 2048-byte sector (hex dump head)\n");
         puts("  attach ide <0|1>  - Use IDE master/slave as volume\n");
         puts("  detach            - Unmount VFS if needed, release volume\n");
         puts("  lspci             - PCI devices\n");
         puts("  ps                - Fake process list\n");
         puts("  hello             - Run embedded ring-3 user demo (C)\n");
         puts("  cnrun             - Run embedded CNAF demo (MANIFEST + hello.elf IMAGE)\n");
-        puts("  cnrun <file>      - Run .cnaf from VFS root (needs mount; max ~2 MiB)\n");
-        puts("  slime             - Run embedded Slime user demo (requires CNOS_WITH_SLIME_USER)\n");
+        puts("  cnrun <file>      - Run .cnaf (cwd-relative or absolute; max ~2 MiB)\n");
+        puts("  slime             - Run embedded Slime user demo (requires CHASEROS_WITH_SLIME_USER)\n");
         puts("  systeminfo        - OS / RAM / display / font / IDE / CD-ROM\n");
     } else if (strcmp(verb, "clear") == 0) {
         console_clear();
@@ -190,11 +210,12 @@ void shell_execute(const char *cmd) {
             puts("mkdisk: allocation failed\n");
             return;
         }
-        if (cnos_vol_attach_ram(mem, (size_t)bytes) != 0) {
+        if (chaseros_vol_attach_ram(mem, (size_t)bytes) != 0) {
             pmm_free_contiguous(mem, pages);
             puts("mkdisk: attach failed\n");
             return;
         }
+        shell_cwd_reset();
         puts("mkdisk: RAM volume ");
         puts_dec(bytes);
         puts(" bytes");
@@ -204,17 +225,17 @@ void shell_execute(const char *cmd) {
             puts("\n");
         }
     } else if (strcmp(verb, "vol") == 0) {
-        const cnos_vol_t *v = cnos_vol_current();
+        const chaseros_vol_t *v = chaseros_vol_current();
         if (!v) {
             puts("No volume attached.\n");
             puts("VFS root: not mounted\n");
             return;
         }
-        if (v->type == CNOS_VOL_RAM) {
+        if (v->type == CHASEROS_VOL_RAM) {
             puts("Volume: RAM, ");
             puts_dec((uint64_t)v->size_bytes);
             puts(" bytes\n");
-        } else if (v->type == CNOS_VOL_IDE) {
+        } else if (v->type == CHASEROS_VOL_IDE) {
             puts("Volume: IDE ");
             puts_dec((uint64_t)v->ide_drive);
             puts(", ");
@@ -234,10 +255,12 @@ void shell_execute(const char *cmd) {
         }
     } else if (strcmp(verb, "umount") == 0) {
         vfs_umount_root();
+        shell_cwd_reset();
         puts("umount: ok\n");
     } else if (strcmp(verb, "detach") == 0) {
         vfs_umount_root();
-        cnos_vol_detach_all();
+        shell_cwd_reset();
+        chaseros_vol_detach_all();
         puts("Volume detached.\n");
     } else if (strcmp(verb, "format") == 0) {
         int fr = vfs_format();
@@ -249,9 +272,91 @@ void shell_execute(const char *cmd) {
             puts("format: failed\n");
             return;
         }
+        shell_cwd_reset();
         puts("format: ext2 created (single group, 1024-byte blocks)\n");
+    } else if (strcmp(verb, "initdisk") == 0) {
+        vfs_umount_root();
+        shell_cwd_reset();
+        int fr = vfs_format();
+        if (fr == VFS_ERR_NOENT) {
+            puts("initdisk: no volume (mkdisk / attach ide first)\n");
+            return;
+        }
+        if (fr != VFS_ERR_NONE) {
+            puts("initdisk: format failed\n");
+            return;
+        }
+        int mr = vfs_mount_root();
+        if (mr != VFS_ERR_NONE) {
+            puts("initdisk: mount failed\n");
+            return;
+        }
+        puts("initdisk: volume formatted (ext2) and mounted; cwd=/\n");
+    } else if (strcmp(verb, "pwd") == 0) {
+        puts(g_cwd);
+        puts("\n");
+    } else if (strcmp(verb, "cd") == 0 || strcmp(verb, "gfl") == 0) {
+        const char *cderr = (strcmp(verb, "gfl") == 0) ? "gfl" : "cd";
+        skip_sp(&p);
+        char resolved[256];
+        if (*p == '\0') {
+            shell_cwd_reset();
+            return;
+        }
+        if (shell_resolve(p, resolved, sizeof resolved) != 0) {
+            puts(cderr);
+            puts(": invalid path\n");
+            return;
+        }
+        if (!vfs_is_mounted()) {
+            puts(cderr);
+            puts(": VFS not mounted (try: mount)\n");
+            return;
+        }
+        if (!vfs_is_directory(resolved)) {
+            puts(cderr);
+            puts(": not a directory\n");
+            return;
+        }
+        size_t ci = 0;
+        while (resolved[ci] && ci + 1 < sizeof g_cwd) {
+            g_cwd[ci] = resolved[ci];
+            ci++;
+        }
+        g_cwd[ci] = '\0';
+    } else if (strcmp(verb, "mkdir") == 0) {
+        skip_sp(&p);
+        if (*p == '\0') {
+            puts("mkdir: usage mkdir <path>\n");
+            return;
+        }
+        char resolved[256];
+        if (shell_resolve(p, resolved, sizeof resolved) != 0) {
+            puts("mkdir: invalid path\n");
+            return;
+        }
+        int mr = vfs_mkdir(resolved);
+        if (mr == VFS_ERR_NOTMOUNTED) {
+            puts("mkdir: VFS not mounted (try: mount)\n");
+            return;
+        }
+        if (mr != VFS_ERR_NONE) {
+            puts("mkdir: failed (exists or disk full)\n");
+            return;
+        }
+        puts("mkdir: ok\n");
     } else if (strcmp(verb, "ls") == 0) {
-        int lr = vfs_ls();
+        skip_sp(&p);
+        char resolved[256];
+        const char *listpath = g_cwd;
+        if (*p != '\0') {
+            if (shell_resolve(p, resolved, sizeof resolved) != 0) {
+                puts("ls: invalid path\n");
+                return;
+            }
+            listpath = resolved;
+        }
+        int lr = vfs_ls(listpath);
         if (lr == VFS_ERR_NOTMOUNTED) {
             puts("ls: VFS not mounted (try: mount)\n");
         } else if (lr != VFS_ERR_NONE) {
@@ -269,9 +374,14 @@ void shell_execute(const char *cmd) {
             name[ni++] = *p++;
         }
         name[ni] = '\0';
+        char resolved[256];
+        if (shell_resolve(name, resolved, sizeof resolved) != 0) {
+            puts("read: invalid path\n");
+            return;
+        }
         char out[4096];
         size_t n = 0;
-        int rr = vfs_read_file(name, out, sizeof out, &n);
+        int rr = vfs_read_file(resolved, out, sizeof out, &n);
         if (rr == VFS_ERR_NOTMOUNTED) {
             puts("read: VFS not mounted (try: mount)\n");
             return;
@@ -303,7 +413,12 @@ void shell_execute(const char *cmd) {
             puts("write: usage write <name> <text...>\n");
             return;
         }
-        int wr = vfs_write_file(name, p, strlen_local(p));
+        char wresolved[256];
+        if (shell_resolve(name, wresolved, sizeof wresolved) != 0) {
+            puts("write: invalid path\n");
+            return;
+        }
+        int wr = vfs_write_file(wresolved, p, strlen_local(p));
         if (wr == VFS_ERR_NOTMOUNTED) {
             puts("write: VFS not mounted (try: mount)\n");
             return;
@@ -315,20 +430,107 @@ void shell_execute(const char *cmd) {
         puts("write: ok\n");
     } else if (strcmp(verb, "ide") == 0) {
         char m[40];
+        int cls;
         puts("IDE primary channel:\n");
         for (int d = 0; d < 2; d++) {
             puts("  ");
             puts_dec((uint64_t)d);
             puts(": ");
-            if (ide_identify((uint8_t)d, m) != 0) {
+            if (ide_probe_type((uint8_t)d, m, &cls) != 0) {
                 puts("(no device)\n");
-            } else {
-                int k;
-                for (k = 0; k < 40 && m[k] != ' '; k++) {
-                    putchar(m[k]);
-                }
-                putchar('\n');
+                continue;
             }
+            if (cls == IDE_CLASS_ATA) {
+                puts("[ATA] ");
+            } else if (cls == IDE_CLASS_ATAPI) {
+                puts("[ATAPI] ");
+            } else {
+                puts("[?] ");
+            }
+            int k;
+            for (k = 0; k < 40 && m[k] != ' '; k++) {
+                putchar(m[k]);
+            }
+            putchar('\n');
+        }
+    } else if (strcmp(verb, "atapi") == 0) {
+        skip_sp(&p);
+        char sub[16];
+        int si = 0;
+        while (*p && *p != ' ' && si < (int)sizeof(sub) - 1) {
+            sub[si++] = *p++;
+        }
+        sub[si] = '\0';
+        skip_sp(&p);
+        if (strcmp(sub, "inquiry") == 0) {
+            uint64_t dr = 0;
+            if (parse_u64(p, &dr) != 0 || (dr != 0 && dr != 1)) {
+                puts("atapi: usage atapi inquiry <0|1>\n");
+                return;
+            }
+            int cls = IDE_CLASS_NONE;
+            char m[40];
+            if (ide_probe_type((uint8_t)dr, m, &cls) != 0 || cls != IDE_CLASS_ATAPI) {
+                puts("atapi: drive is not ATAPI (use ide)\n");
+                return;
+            }
+            uint8_t inq[96];
+            uint32_t act = 0;
+            if (ide_atapi_inquiry((uint8_t)dr, inq, sizeof inq, &act) != 0) {
+                puts("atapi: INQUIRY failed\n");
+                return;
+            }
+            puts("INQUIRY ok, bytes=");
+            puts_dec((uint64_t)act);
+            puts("\n  vendor: ");
+            for (int k = 8; k < 16; k++) {
+                char c = (char)inq[k];
+                putchar((c >= 32 && c < 127) ? c : '?');
+            }
+            puts("\n  product: ");
+            for (int k = 16; k < 32; k++) {
+                char c = (char)inq[k];
+                putchar((c >= 32 && c < 127) ? c : '?');
+            }
+            putchar('\n');
+        } else if (strcmp(sub, "read") == 0) {
+            uint64_t dr = 0;
+            if (parse_u64(p, &dr) != 0 || (dr != 0 && dr != 1)) {
+                puts("atapi: usage atapi read <0|1> <lba>\n");
+                return;
+            }
+            while (*p && *p != ' ') {
+                p++;
+            }
+            skip_sp(&p);
+            uint64_t lba = 0;
+            if (parse_u64(p, &lba) != 0) {
+                puts("atapi: usage atapi read <0|1> <lba>\n");
+                return;
+            }
+            int cls = IDE_CLASS_NONE;
+            char m[40];
+            if (ide_probe_type((uint8_t)dr, m, &cls) != 0 || cls != IDE_CLASS_ATAPI) {
+                puts("atapi: drive is not ATAPI\n");
+                return;
+            }
+            uint8_t sec[2048];
+            if (ide_atapi_read2048((uint8_t)dr, (uint32_t)lba, sec) != 0) {
+                puts("atapi: READ(10) failed (no media?)\n");
+                return;
+            }
+            puts("READ lba=");
+            puts_dec(lba);
+            puts(" first 64 bytes:\n");
+            const char *xd = "0123456789ABCDEF";
+            for (int i = 0; i < 64; i++) {
+                unsigned char v = sec[i];
+                putchar(xd[v >> 4]);
+                putchar(xd[v & 15]);
+                putchar((i & 15) == 15 ? '\n' : ' ');
+            }
+        } else {
+            puts("atapi: usage atapi inquiry <0|1> | atapi read <0|1> <lba>\n");
         }
     } else if (strcmp(verb, "attach") == 0) {
         if (strncmp_local(p, "ide", 3) == 0 && (p[3] == ' ' || p[3] == '\0')) {
@@ -339,10 +541,11 @@ void shell_execute(const char *cmd) {
                 puts("attach: usage attach ide <0|1>\n");
                 return;
             }
-            if (cnos_vol_attach_ide((uint8_t)d) != 0) {
+            if (chaseros_vol_attach_ide((uint8_t)d) != 0) {
                 puts("attach: IDE failed (no disk or size too small)\n");
                 return;
             }
+            shell_cwd_reset();
             puts("attach: IDE volume ready");
             if (vfs_mount_root() == VFS_ERR_NONE) {
                 puts(", VFS mounted\n");
@@ -374,8 +577,13 @@ void shell_execute(const char *cmd) {
             name[ni++] = *p++;
         }
         name[ni] = '\0';
+        char cresolved[256];
+        if (shell_resolve(name, cresolved, sizeof cresolved) != 0) {
+            puts("cnrun: invalid path\n");
+            return;
+        }
         vfs_stat_t st;
-        int sr = vfs_stat(name, &st);
+        int sr = vfs_stat(cresolved, &st);
         if (sr == VFS_ERR_NOTMOUNTED) {
             puts("cnrun: VFS not mounted (try: mount)\n");
             return;
@@ -395,13 +603,13 @@ void shell_execute(const char *cmd) {
             return;
         }
         size_t got = 0;
-        int rr = vfs_read_file_range(name, 0u, blob, (size_t)st.size, &got);
+        int rr = vfs_read_file_range(cresolved, 0u, blob, (size_t)st.size, &got);
         if (rr != VFS_ERR_NONE || got != st.size) {
             pmm_free_contiguous(blob, pages64);
             puts("cnrun: read failed\n");
             return;
         }
-        user_run_cnaf_from_owned_pages(blob, got, pages64, name);
+        user_run_cnaf_from_owned_pages(blob, got, pages64, cresolved);
     } else if (strcmp(verb, "slime") == 0) {
         user_run_embedded_slime_hello();
     } else if (strcmp(verb, "systeminfo") == 0) {

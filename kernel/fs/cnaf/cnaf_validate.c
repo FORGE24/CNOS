@@ -4,7 +4,7 @@
 
 #include <stddef.h>
 
-static void cnos_memcpy(void *d, const void *s, size_t n) {
+static void chaseros_memcpy(void *d, const void *s, size_t n) {
     unsigned char *a = d;
     const unsigned char *b = s;
     while (n--) {
@@ -21,7 +21,7 @@ cnaf_err_t cnaf_probe_header(const void *data, size_t len, cnaf_file_header_t *o
     if (len < sizeof(h)) {
         return CNAF_ERR_TRUNCATED;
     }
-    cnos_memcpy(&h, data, sizeof(h));
+    chaseros_memcpy(&h, data, sizeof(h));
 
     if (h.magic != CNAF_MAGIC_U32) {
         return CNAF_ERR_MAGIC;

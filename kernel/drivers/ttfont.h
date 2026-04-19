@@ -9,7 +9,7 @@
 void ttfont_reset(void);
 void ttfont_init_for_height(int screen_height);
 
-/* 返回 0 表示成功启用矢量字体（需编译时 CNOS_HAVE_STBTT + 模块数据有效） */
+/* 返回 0 表示成功启用矢量字体（需编译时 CHASEROS_HAVE_STBTT + 模块数据有效） */
 int ttfont_init_stb(const void *font_data, size_t font_size);
 
 int ttfont_is_vector(void);

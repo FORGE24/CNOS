@@ -1,7 +1,7 @@
 /* CNAF/CNAFL — 从缓冲区提取 IMAGE 节（v0.2 节表或 v0.1 遗留布局） */
 
-#ifndef CNOS_CNAF_IMAGE_H
-#define CNOS_CNAF_IMAGE_H
+#ifndef CHASEROS_CNAF_IMAGE_H
+#define CHASEROS_CNAF_IMAGE_H
 
 #include "cnaf_spec.h"
 #include <stddef.h>

@@ -1,10 +1,10 @@
-CNOS 用户态系统调用 ABI（调用约定 + 核心接口）
+ChaserOS 用户态系统调用 ABI（调用约定 + 核心接口）
 ================================================
 
 本文档定义 **ring 3 用户程序** 与 **内核** 之间通过 **`int $0x80`** 的系统调用界面。
 编号与寄存器含义的权威头文件：**kernel/syscall_abi.h**  
-Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**  
-汇编桩：**user/cnos-rt/cnos_syscalls.asm**
+Slime 常量模块：**integrations/slime-for-chaseros/std/chaseros/constants.sm**  
+汇编桩：**user/chaseros-rt/chaseros_syscalls.asm**
 
 --------------------------------------------------------------------
 0. CPL 与 ISR 权限
@@ -18,7 +18,7 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
 1. 触发方式
 --------------------------------------------------------------------
 
-  * **指令**：`int imm8`，当前 **`imm8 = 0x80`**（与 **kernel/syscall_abi.h** 中 **CNOS_SYSCALL_VECTOR** 一致）。
+  * **指令**：`int imm8`，当前 **`imm8 = 0x80`**（与 **kernel/syscall_abi.h** 中 **CHASEROS_SYSCALL_VECTOR** 一致）。
   * **特权级**：仅在 **CPL = 3**（用户代码段）发起的 **int 128** 陷入按本 ABI 处理；内核态发起的同类向量由 **isr.c** 忽略或另行策略。
   * **与 Linux 的区别**：不用 **`syscall/sysret`**；参数用 **64 位寄存器** 传递，而不是 int 0x80 传统的 **ebx/ecx/edx** 布局。
 
@@ -28,7 +28,7 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
 
   **调用号**
 
-    RAX ← **CNOS_SYS_***（见下表）。汇编桩通常写 **EAX**，必须保证与 **RAX** 低 32 位一致。
+    RAX ← **CHASEROS_SYS_***（见下表）。汇编桩通常写 **EAX**，必须保证与 **RAX** 低 32 位一致。
 
   **参数（最多 6 个整数/指针类参数）**
 
@@ -39,7 +39,7 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
     第 5 参数：**R8**（预留）  
     第 6 参数：**R9**（预留）
 
-    该顺序与 **System V AMD64** 用户态 **extern "C"** 调用约定一致，便于 **Slime `extern "C"`** 与 **`user/cnos-rt/cnos_syscalls.asm`** 汇编桩共用符号。
+    该顺序与 **System V AMD64** 用户态 **extern "C"** 调用约定一致，便于 **Slime `extern "C"`** 与 **`user/chaseros-rt/chaseros_syscalls.asm`** 汇编桩共用符号。
 
   **返回值**
 
@@ -54,16 +54,16 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
 3. 系统调用表（核心接口）
 --------------------------------------------------------------------
 
-  编号 **0–255** 由 CNOS 内核与本文档保留分配；新增调用须同步：
+  编号 **0–255** 由 ChaserOS 内核与本文档保留分配；新增调用须同步：
 
     * **kernel/isr.c**（分发）
-    * **kernel/syscall_abi.h**（**CNOS_SYS_***）
+    * **kernel/syscall_abi.h**（**CHASEROS_SYS_***）
     * **user/SYSCALL-ABI.txt**（本表）
-    * **integrations/slime-for-cnos/std/cnos/constants.sm**
-    * **user/cnos-rt/cnos_syscalls.asm**（若有裸导出符号）
+    * **integrations/slime-for-chaseros/std/chaseros/constants.sm**
+    * **user/chaseros-rt/chaseros_syscalls.asm**（若有裸导出符号）
 
   ----
-  **CNOS_SYS_EXIT（0）**
+  **CHASEROS_SYS_EXIT（0）**
 
     **用途**：终止当前用户任务并返回内核 Shell（当前实现跳转至内核提供的退出路径）。
 
@@ -72,7 +72,7 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
     **返回值**：无（不回到用户态）。**RDI** 可为退出码（内核可选用）。
 
   ----
-  **CNOS_SYS_WRITE（1）**
+  **CHASEROS_SYS_WRITE（1）**
 
     **用途**：向打开的文件描述符写入缓冲区。
 
@@ -82,21 +82,21 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
       **RDX** = 写入长度（字节）
 
     **返回值**：**RAX** = 实际写入字节数（成功）；**0** 表示 **len==0**。  
-    失败时 **RAX** = **-errno**：**-EBADF**（fd 非 1 且非 2）、**-EINVAL**（**len** 超过 **CNOS_SYSCALL_MAX_IO_BYTES**）、**-EFAULT**（缓冲区不在用户可读映射内或长度溢出）、**-ENOSYS**（保留给其他错误路径）。  
+    失败时 **RAX** = **-errno**：**-EBADF**（fd 非 1 且非 2）、**-EINVAL**（**len** 超过 **CHASEROS_SYSCALL_MAX_IO_BYTES**）、**-EFAULT**（缓冲区不在用户可读映射内或长度溢出）、**-ENOSYS**（保留给其他错误路径）。  
 
     **权限**：缓冲区 **[RSI, RSI+RDX)** 必须通过页表校验为 **PAGE_PRESENT | PAGE_USER**（参见 **vmm_user_range_readable**），防止将 **仅内核可映射** 的 VA 当作用户缓冲区误读。
 
   ----
-  **CNOS_SYS_GETPID（2）**
+  **CHASEROS_SYS_GETPID（2）**
 
-    **用途**：返回当前用户任务 PID（嵌入式 hello 固定为 **2**，由内核 **cnos_active_user_pid** 提供）。
+    **用途**：返回当前用户任务 PID（嵌入式 hello 固定为 **2**，由内核 **chaseros_active_user_pid** 提供）。
 
     **参数**：无（忽略 **RDI** 等）。
 
     **返回值**：**RAX** = PID（非负）。
 
   ----
-  **CNOS_SYS_READ（3）**
+  **CHASEROS_SYS_READ（3）**
 
     **用途**：从打开的文件描述符读入缓冲区。
 
@@ -109,16 +109,16 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
     **-EINVAL** / **-EFAULT** / **-EIO**：越界长度、缓冲区不可写、底层读失败等。
 
   ----
-  **CNOS_SYS_UPTIME_TICKS（4）**
+  **CHASEROS_SYS_UPTIME_TICKS（4）**
 
     **用途**：单调 tick 计数（每次 **IRQ0** 时钟中断递增），用于简单计时/演示。
 
     **参数**：无。
 
-    **返回值**：**RAX** = **cnos_kernel_ticks**（自启动以来递增）。
+    **返回值**：**RAX** = **chaseros_kernel_ticks**（自启动以来递增）。
 
   ----
-  **CNOS_SYS_OPEN（5）**
+  **CHASEROS_SYS_OPEN（5）**
 
     **用途**：在 **VFS 根** 打开普通文件（仅 **ext2** 根目录一层文件名，无 `/` 子路径）。
 
@@ -129,7 +129,7 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
     **混合阶段 3**：默认构建下打开请求经 **IPC** 委派至内核 **PID=3** 服务再调用 **`user_fd_open_kpath`**（与直接 VFS 调用结果一致，便于迁出文件服务）。
 
   ----
-  **CNOS_SYS_CLOSE（6）**
+  **CHASEROS_SYS_CLOSE（6）**
 
     **用途**：关闭 **fd ≥ 3** 由 **open** 获得的描述符。
 
@@ -140,12 +140,12 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
   ----
   **混合内核 IPC（7–10）**
 
-  * **CNOS_SYS_IPC_SEND（7）**：**RDI** = 目标 PID；**RSI** = **`message_t`** 用户 VA；成功 **RAX=0**；失败 **-EINVAL** / **-EFAULT**。
-  * **CNOS_SYS_IPC_RECV（8）**：**RDI** = 期望发送方 PID（**0** = 任意）；**RSI** = 输出 **`message_t`**；暂无消息 **-EAGAIN**（**11**）。
-  * **CNOS_SYS_IPC_REPLY（9）**：**RDI** = **WAITING_REPLY** 的对端 PID；**RSI** = **`message_t`**。
-  * **CNOS_SYS_IPC_CALL（10）**：**RDI** = 目标 PID；**RSI** = 请求 **`message_t`**；**RDX** = 响应 **`message_t`** 输出缓冲区。内核 **Send** 后阻塞直至收到 **Reply**（**sti/hlt**），再写入响应；成功 **RAX=0**。
+  * **CHASEROS_SYS_IPC_SEND（7）**：**RDI** = 目标 PID；**RSI** = **`message_t`** 用户 VA；成功 **RAX=0**；失败 **-EINVAL** / **-EFAULT**。
+  * **CHASEROS_SYS_IPC_RECV（8）**：**RDI** = 期望发送方 PID（**0** = 任意）；**RSI** = 输出 **`message_t`**；暂无消息 **-EAGAIN**（**11**）。
+  * **CHASEROS_SYS_IPC_REPLY（9）**：**RDI** = **WAITING_REPLY** 的对端 PID；**RSI** = **`message_t`**。
+  * **CHASEROS_SYS_IPC_CALL（10）**：**RDI** = 目标 PID；**RSI** = 请求 **`message_t`**；**RDX** = 响应 **`message_t`** 输出缓冲区。内核 **Send** 后阻塞直至收到 **Reply**（**sti/hlt**），再写入响应；成功 **RAX=0**。
 
-  **阶段 3**：若内核以 **CNOS_HYBRID_FS_VIA_IPC** 构建，**SYS_OPEN** 在用户路径上通过 **PID=3** 服务执行 **`user_fd_open_kpath`**（仍链接同一 VFS；便于后续将服务迁出 ring0）。
+  **阶段 3**：若内核以 **CHASEROS_HYBRID_FS_VIA_IPC** 构建，**SYS_OPEN** 在用户路径上通过 **PID=3** 服务执行 **`user_fd_open_kpath`**（仍链接同一 VFS；便于后续将服务迁出 ring0）。
 
 --------------------------------------------------------------------
 4. 参考映射（便于对照）
@@ -153,13 +153,13 @@ Slime 常量模块：**integrations/slime-for-cnos/std/cnos/constants.sm**
 
   **C（内联汇编）**：见 **user/hello.c**。
 
-  **汇编桩**：**user/cnos-rt/cnos_syscalls.asm** — **cnos_sys_***（含 open / close）。
+  **汇编桩**：**user/chaseros-rt/chaseros_syscalls.asm** — **chaseros_sys_***（含 open / close）。
 
-  **Slime STD**：**import "cnos/io"**；编号 **cnos/constants**；errno **cnos/errno**；返回值解析 **cnos/syscall**。（**SYS_*** 与 **CNOS_SYS_*** 数值一致。）
+  **Slime STD**：**import "chaseros/io"**；编号 **chaseros/constants**；errno **chaseros/errno**；返回值解析 **chaseros/syscall**。（**SYS_*** 与 **CHASEROS_SYS_*** 数值一致。）
 
 --------------------------------------------------------------------
 5. 版本与兼容
 --------------------------------------------------------------------
 
-  变更系统调用编号或寄存器语义时，应递增 CNOS 对外说明版本，并保留旧编号一段过渡期（策略待定）。  
+  变更系统调用编号或寄存器语义时，应递增 ChaserOS 对外说明版本，并保留旧编号一段过渡期（策略待定）。  
   工具链与 STD 应以 **kernel/syscall_abi.h** 与本文档为准进行自动化校验（可选后续工作）。

@@ -5,15 +5,15 @@
 
 #include <stdint.h>
 
-#define CNOS_HYBRID_SERVICE_PID 3ull
+#define CHASEROS_HYBRID_SERVICE_PID 3ull
 
-#define CNOS_MSG_NOP       0ull
-#define CNOS_MSG_PING      1ull
-#define CNOS_MSG_PONG      2ull
-#define CNOS_MSG_FS_OPEN   10ull
-#define CNOS_MSG_FS_REPLY  11ull
+#define CHASEROS_MSG_NOP       0ull
+#define CHASEROS_MSG_PING      1ull
+#define CHASEROS_MSG_PONG      2ull
+#define CHASEROS_MSG_FS_OPEN   10ull
+#define CHASEROS_MSG_FS_REPLY  11ull
 
-void cnos_hybrid_ipc_service_spawn(void);
+void chaseros_hybrid_ipc_service_spawn(void);
 
 long hybrid_user_fd_open_via_ipc(const char *path, int flags);
 

@@ -152,7 +152,7 @@ void gui_init() {
     buf_win = (uint32_t *)0x2400000;
     sheet_setbuf(sht_win, buf_win, 400, 300, -1);
     gui_draw_window(buf_win, 400, 400, 300, "System Console");
-    draw_string_buf(buf_win, 400, 10, 30, "Welcome to CNOS 64-bit!", COLOR_BLACK);
+    draw_string_buf(buf_win, 400, 10, 30, "Welcome to ChaserOS 64-bit!", COLOR_BLACK);
     draw_string_buf(buf_win, 400, 10, 50, "Microkernel architecture", COLOR_BLACK);
     draw_string_buf(buf_win, 400, 10, 70, "Windows-like UI", COLOR_BLACK);
 

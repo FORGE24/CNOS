@@ -14,7 +14,7 @@
 #include "user_fd.h"
 #include "ipc.h"
 
-volatile uint64_t cnos_kernel_ticks = 0;
+volatile uint64_t chaseros_kernel_ticks = 0;
 
 static const char scancode_ascii[] = {
     0, 27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
@@ -73,7 +73,7 @@ void isr_handler(struct registers *regs) {
         }
     } else if (regs->int_no >= 32 && regs->int_no <= 47) {
         if (regs->int_no == 32) {
-            cnos_kernel_ticks++;
+            chaseros_kernel_ticks++;
             schedule();
         } else if (regs->int_no == 33) {
             uint8_t scancode = inb(0x60);
@@ -101,11 +101,11 @@ void isr_handler(struct registers *regs) {
         }
 
         switch (regs->rax) {
-        case CNOS_SYS_EXIT:
+        case CHASEROS_SYS_EXIT:
             user_on_syscall_exit(regs);
             break;
 
-        case CNOS_SYS_WRITE: {
+        case CHASEROS_SYS_WRITE: {
             int fd = (int)regs->rdi;
             uint64_t buf_addr = regs->rsi;
             size_t len = (size_t)regs->rdx;
@@ -118,7 +118,7 @@ void isr_handler(struct registers *regs) {
                 syscall_ret(regs, 0);
                 break;
             }
-            if (len > CNOS_SYSCALL_MAX_IO_BYTES) {
+            if (len > CHASEROS_SYSCALL_MAX_IO_BYTES) {
                 syscall_ret(regs, -EINVAL);
                 break;
             }
@@ -135,15 +135,15 @@ void isr_handler(struct registers *regs) {
             break;
         }
 
-        case CNOS_SYS_GETPID:
-            syscall_ret(regs, (int64_t)cnos_active_user_pid);
+        case CHASEROS_SYS_GETPID:
+            syscall_ret(regs, (int64_t)chaseros_active_user_pid);
             break;
 
-        case CNOS_SYS_UPTIME_TICKS:
-            syscall_ret(regs, (int64_t)cnos_kernel_ticks);
+        case CHASEROS_SYS_UPTIME_TICKS:
+            syscall_ret(regs, (int64_t)chaseros_kernel_ticks);
             break;
 
-        case CNOS_SYS_READ: {
+        case CHASEROS_SYS_READ: {
             int fd = (int)regs->rdi;
             uint64_t buf_addr = regs->rsi;
             size_t len = (size_t)regs->rdx;
@@ -153,7 +153,7 @@ void isr_handler(struct registers *regs) {
                     syscall_ret(regs, 0);
                     break;
                 }
-                if (len > CNOS_SYSCALL_MAX_IO_BYTES) {
+                if (len > CHASEROS_SYSCALL_MAX_IO_BYTES) {
                     syscall_ret(regs, -EINVAL);
                     break;
                 }
@@ -176,15 +176,15 @@ void isr_handler(struct registers *regs) {
             break;
         }
 
-        case CNOS_SYS_OPEN:
+        case CHASEROS_SYS_OPEN:
             syscall_ret(regs, user_fd_sys_open(regs->rdi, (int)regs->rsi));
             break;
 
-        case CNOS_SYS_CLOSE:
+        case CHASEROS_SYS_CLOSE:
             syscall_ret(regs, user_fd_sys_close((int)regs->rdi));
             break;
 
-        case CNOS_SYS_IPC_SEND: {
+        case CHASEROS_SYS_IPC_SEND: {
             uint64_t dest_pid = regs->rdi;
             uint64_t msg_uva = regs->rsi;
             if (!vmm_user_range_readable(msg_uva, sizeof(message_t))) {
@@ -198,7 +198,7 @@ void isr_handler(struct registers *regs) {
             break;
         }
 
-        case CNOS_SYS_IPC_RECV: {
+        case CHASEROS_SYS_IPC_RECV: {
             uint64_t src_pid = regs->rdi;
             uint64_t msg_uva = regs->rsi;
             if (!vmm_user_range_writable(msg_uva, sizeof(message_t))) {
@@ -218,7 +218,7 @@ void isr_handler(struct registers *regs) {
             break;
         }
 
-        case CNOS_SYS_IPC_REPLY: {
+        case CHASEROS_SYS_IPC_REPLY: {
             uint64_t dest_pid = regs->rdi;
             uint64_t msg_uva = regs->rsi;
             if (!vmm_user_range_readable(msg_uva, sizeof(message_t))) {
@@ -232,7 +232,7 @@ void isr_handler(struct registers *regs) {
             break;
         }
 
-        case CNOS_SYS_IPC_CALL: {
+        case CHASEROS_SYS_IPC_CALL: {
             uint64_t dest_pid = regs->rdi;
             uint64_t req_u = regs->rsi;
             uint64_t rep_u = regs->rdx;

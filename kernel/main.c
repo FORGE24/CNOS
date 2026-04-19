@@ -12,7 +12,7 @@
 #include "drivers/vga.h"
 #include "console.h"
 #include "drivers/ide.h"
-#include "fs/cnos/cnos_ext2_vol.h"
+#include "fs/chaseros/chaseros_ext2_vol.h"
 #include "gdt.h"
 #include "hybrid_ipc.h"
 
@@ -59,7 +59,7 @@ void kernel_main(uint64_t mbi_phys, uint64_t boot_magic) {
 
     if (!multiboot_validate((uint32_t)boot_magic, mbi_phys)) {
         vga_init();
-        const char *err = "CNOS: invalid Multiboot2 handoff\n";
+        const char *err = "ChaserOS: invalid Multiboot2 handoff\n";
         serial_puts(err);
         vga_puts(err);
         for (;;) {
@@ -72,7 +72,7 @@ void kernel_main(uint64_t mbi_phys, uint64_t boot_magic) {
     pmm_init(mbi_phys);
     vmm_init();
     ide_init();
-    cnos_vol_init();
+    chaseros_vol_init();
     vfs_init();
 
     process_init();
@@ -80,10 +80,10 @@ void kernel_main(uint64_t mbi_phys, uint64_t boot_magic) {
     idt_init();
     shell_init();
 
-    cnos_hybrid_ipc_service_spawn();
+    chaseros_hybrid_ipc_service_spawn();
 
-    puts("Welcome to CNOS hybrid kernel (IPC FS service PID=");
-    puts_dec(CNOS_HYBRID_SERVICE_PID);
+    puts("Welcome to ChaserOS hybrid kernel (IPC FS service PID=");
+    puts_dec(CHASEROS_HYBRID_SERVICE_PID);
     puts(", serial + VGA shell).\n");
     puts("Memory OK. VFS init done.\n\nMultiboot2 @ ");
     puts_hex(mbi_phys);
@@ -94,7 +94,7 @@ void kernel_main(uint64_t mbi_phys, uint64_t boot_magic) {
     puts(" MB free\n");
 
     __asm__ volatile("sti");
-    puts("\nCNOS> ");
+    puts("\nChaserOS> ");
 
     for (;;) {
         __asm__ volatile("hlt");

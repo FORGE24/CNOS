@@ -1,13 +1,13 @@
 /*
  * 替代 e2fsprogs 的 autoconf config.h；随 libext2fs 逐步编入内核而扩充。
- * 在编译任何 lib/ext2fs 下 .c 前加入：-include kernel/fs/cnos/config.h
+ * 在编译任何 lib/ext2fs 下 .c 前加入：-include kernel/fs/chaseros/config.h
  * （或通过 CMake 目标级 FORCE_INCLUDE）。
  */
 
-#ifndef CNOS_EXT2_CONFIG_H
-#define CNOS_EXT2_CONFIG_H
+#ifndef CHASEROS_EXT2_CONFIG_H
+#define CHASEROS_EXT2_CONFIG_H
 
-#define CNOS_KERNEL 1
+#define CHASEROS_KERNEL 1
 
 /*
  * 单线程：切勿 #define HAVE_PTHREAD（哪怕为 0），否则上游里 #ifdef HAVE_PTHREAD
@@ -25,7 +25,7 @@
 #define HAVE_STDINT_H 1
 #define HAVE_STDIO_H 0
 
-#define malloc cnos_malloc
-#define free cnos_free
+#define malloc chaseros_malloc
+#define free chaseros_free
 
 #endif

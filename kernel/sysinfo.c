@@ -12,7 +12,7 @@ extern void putchar(char c);
 #include "pmm.h"
 
 void sysinfo_print(void) {
-    puts("CNOS System Information\n");
+    puts("ChaserOS System Information\n");
 
     puts("  Multiboot2 MBI (phys): ");
     puts_hex(console_get_mbi_phys());
@@ -65,5 +65,5 @@ void sysinfo_print(void) {
         putchar('\n');
     }
 
-    puts("  CD-ROM: IDE ATAPI slave/master 上若存在上述 [CD-ROM] 条目即支持光驱枚举（读盘需另行实现 ATAPI 读写）。\n");
+    puts("  CD-ROM: use Shell commands atapi inquiry <0|1> and atapi read <0|1> <lba> (READ(10), 2048 bytes/sector).\n");
 }

@@ -1,18 +1,18 @@
-# CNOS
+# ChaserOS
 
-CNOS（CN OS）是基于 **64 位微内核** 的实验性操作系统，通过 **GRUB2 + Multiboot2** 从 ISO 启动；控制台为 **VGA 文本模式 + 串口**（Shell 经 PS/2 键盘 IRQ1）。存储侧正在接入 **e2fsprogs / libext2fs** 子集，内核提供 **VFS 根挂载**、裁剪 **ext2** 玩具卷与 **CNAF/CNAFL** 头校验。
+**ChaserOS**（Chaser OS）是基于 **64 位微内核** 的实验性操作系统，为 **CNOS 的变体分支**：在保留 Multiboot2、VFS/ext2、用户态 ABI 与 Slime 集成思路的同时，使用独立项目名与构建产物命名。通过 **GRUB2 + Multiboot2** 从 ISO 启动；控制台为 **VGA 文本模式 + 串口**（Shell 经 PS/2 键盘 IRQ1）。存储侧正在接入 **e2fsprogs / libext2fs** 子集，内核提供 **VFS 根挂载**、裁剪 **ext2** 玩具卷与 **CNAF/CNAFL** 头校验。
 
 ## 特性（概览）
 
 - **引导**：Multiboot2 头位于 `.text` 最前；可选用 `gfxpayload=text` 保持 VGA 文本显存可见。
 - **控制台**：`0xB8000` 文本缓冲 + COM1 镜像输出。
 - **内存**：物理页（PMM）、页表（VMM）；对用户缓冲区做 **可读/可写** 页表校验（系统调用路径）。
-- **时钟**：IRQ0 递增单调 **`cnos_kernel_ticks`**，可供用户态 **`SYS_UPTIME_TICKS`** 查询。
+- **时钟**：IRQ0 递增单调 **`chaseros_kernel_ticks`**，可供用户态 **`SYS_UPTIME_TICKS`** 查询。
 - **VFS**：根卷需 **`mount`** 后，`ls` / `read` / `write` 才走 VFS；**`format`** 直接在当前块设备卷上创建极简 ext2（不要求已挂载）。详见下文「Shell 与卷」。
 - **文件系统后端**：`kernel/fs` 内含裁剪后的 **e2fsprogs** 源码树（按需编入 CMake），说明见 `kernel/fs/README`。
 - **IPC（实验）**：同步消息路径与 `process_find_by_pid`、发送队列、`msg_pending`（完整阻塞/调度仍在演进）。源码见 `kernel/ipc.c`。
 - **用户态**：ring 3 嵌入 ELF（默认 C `user/hello.c`）；**`int $0x80`** 提供 **exit / write(1,2) / getpid / read(0,EOF) / uptime_ticks**。权威说明：**`kernel/syscall_abi.h`**、**`user/SYSCALL-ABI.txt`**。
-- **Slime**：可选 **`CNOS_WITH_SLIME_USER`** 嵌入 **`slimec --target cnos`** 产物；标准库位于 **`integrations/slime-for-cnos/std`**，脚本见 **`scripts/cnos-slime-compile.sh`** 等。
+- **Slime**：可选 **`CHASEROS_WITH_SLIME_USER`** 嵌入 **`slimec --target cnos`** 产物（Slime 上游仍使用 `cnos` 目标名）；标准库位于 **`integrations/slime-for-chaseros/std`**，脚本见 **`scripts/cnos-slime-compile.sh`** 等。
 - **应用包**：CNAF/CNAFL 规范与校验（`kernel/fs/cnaf/`）；用户 ELF 独立构建见 **`user/BUILD-CNAF.txt`**。
 
 ## Shell 与卷（常用流程）
@@ -34,12 +34,12 @@ CNOS（CN OS）是基于 **64 位微内核** 的实验性操作系统，通过 *
 | CMake ≥ 3.16 | 构建 |
 | NASM | 内核汇编（`elf64`） |
 | `x86_64-elf-gcc` + `x86_64-elf-ld` 等 | 裸机交叉编译（无 libc） |
-| xorriso、`grub-mkrescue` | 生成 `cnos.iso`（可选；无则只生成 `kernel.elf`） |
+| xorriso、`grub-mkrescue` | 生成 `chaseros.iso`（可选；无则只生成 `kernel.elf`） |
 | QEMU `qemu-system-x86_64` | 本地运行 ISO |
 
 ### 交叉工具链（多数 apt 源无预装包，需自行编译）
 
-CNOS 需要 **目标三元组 `x86_64-elf`** 的裸机工具链（不是 `x86_64-linux-gnu`）。很多环境 **apt/dnf 里没有** 现成 `gcc-x86-64-elf`，需要 **从 GNU 源码编译 binutils + gcc**（或只用可信来源的预编译包）。
+ChaserOS 需要 **目标三元组 `x86_64-elf`** 的裸机工具链（不是 `x86_64-linux-gnu`）。很多环境 **apt/dnf 里没有** 现成 `gcc-x86-64-elf`，需要 **从 GNU 源码编译 binutils + gcc**（或只用可信来源的预编译包）。
 
 **与 CI 同源的一键脚本**（版本固定在脚本内：binutils / gcc 可从 GNU 镜像拉取）：
 
@@ -60,11 +60,11 @@ export PATH="$(pwd)/.cross/bin:$PATH"
 
 更通用的手写步骤见 [OSDev Wiki: GCC Cross-Compiler](https://wiki.osdev.org/GCC_Cross-Compiler)。
 
-CMake 通过 `PATH` 查找 `x86_64-elf-gcc`，也可用 `CNOS_X86_64_ELF_GCC` 指向编译器可执行文件（见 `cmake/x86_64-elf.cmake`）。
+CMake 通过 `PATH` 查找 `x86_64-elf-gcc`，也可用 **`CHASEROS_X86_64_ELF_GCC`** 指向编译器可执行文件（见 `cmake/x86_64-elf.cmake`）。
 
 **不要**用 `x86_64-linux-gnu-gcc` 代替；若个别发行版 **恰好** 提供 `gcc-x86-64-elf` 包，也可直接 `apt install` 后使用，与脚本二选一即可。
 
-### 宿主上编译 CNOS 用户 ELF（可选）
+### 宿主上编译 ChaserOS 用户 ELF（可选）
 
 在 Linux 上为 **用户态演示/工具链** 构建时，可参考 **`toolchains/linux-cnos-app/README.txt`** 与 **`scripts/build-cnos-app-linux-toolchain.sh`**（与内核用 **`x86_64-elf`** 裸机链区分用途）。
 
@@ -80,7 +80,7 @@ cmake --build build
 产物：
 
 - `build/kernel.elf` — 内核 ELF（内嵌 `build/user/hello.elf`）  
-- `build/cnos.iso` — 可启动镜像（需已安装 GRUB/xorriso）
+- `build/chaseros.iso` — 可启动镜像（需已安装 GRUB/xorriso）
 
 若已配置过 `build/`且未换工具链，可直接：
 
@@ -92,26 +92,24 @@ cmake --build build
 交叉编译器不在默认路径时：
 
 ```bash
-export CNOS_X86_64_ELF_GCC=/path/to/x86_64-elf-gcc
+export CHASEROS_X86_64_ELF_GCC=/path/to/x86_64-elf-gcc
 cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
 cmake --build build
 ```
-
-或使用 Makefile 封装：
 
 ```bash
 make          # 首次自动带工具链文件配置
 make clean    # 删除 build 目录
 ```
 
-Slime 用户 ELF 嵌入内核：`-DCNOS_WITH_SLIME_USER=ON`（需 Slime 源码路径与 `slimec` / `nasm`，见根 `CMakeLists.txt`）。
+Slime 用户 ELF 嵌入内核：`-DCHASEROS_WITH_SLIME_USER=ON`（需 Slime 源码路径与 `slimec` / `nasm`，见根 `CMakeLists.txt`）。
 
 等价预设：`cmake --preset default`（见 `CMakePresets.json`）。
 
 ## 运行（QEMU）
 
 ```bash
-qemu-system-x86_64 -cdrom build/cnos.iso -m 128M -serial stdio
+qemu-system-x86_64 -cdrom build/chaseros.iso -m 128M -serial stdio
 ```
 
 或：
@@ -127,10 +125,10 @@ make run
 | 路径 | 说明 |
 |------|------|
 | `kernel/` | 内核源码（C / NASM）；`ipc.c`、`fs/vfs.c`、`isr.c`（系统调用）、`user.c`（嵌入用户 ELF） |
-| `kernel/fs/cnos/`、`kernel/fs/cnaf/` | ext2 卷适配、CNAF |
+| `kernel/fs/chaseros/`、`kernel/fs/cnaf/` | ext2 卷适配、CNAF |
 | `kernel/fs/lib/ext2fs/` 等 | e2fsprogs 库源码（按需加入 CMake） |
 | `user/` | 用户态约定、**`user.ld`**、`hello.c`、CNAF 子工程、**`SYSCALL-ABI.txt`** |
-| `integrations/slime-for-cnos/` | Slime for CNOS 标准库与路线图（`ROADMAP.txt`） |
+| `integrations/slime-for-chaseros/` | Slime for ChaserOS 标准库与路线图（`ROADMAP.txt`） |
 | `cmake/x86_64-elf.cmake` | 裸机工具链 |
 | `iso/boot/grub/grub.cfg` | GRUB 菜单（`multiboot2` 加载内核） |
 | `scripts/` | 交叉链、Slime、CNAF 打包等脚本 |
@@ -142,8 +140,8 @@ make run
 
 - **不依赖** apt 里的 `gcc-x86-64-elf`：在 Runner 上执行 `scripts/build-x86_64-elf-toolchain.sh`，从 **GNU 官方源码** 编译 **binutils + gcc**（`x86_64-elf`），安装到 `${GITHUB_WORKSPACE}/.cross`。  
 - **`actions/cache`** 缓存 `.cross` 目录；**首次运行**耗时会较长（完整编译工具链），**缓存命中**后只编译内核/ISO。  
-- **CI**：推送/PR 至 `main` 时生成 `kernel.elf`、`cnos.iso`，并上传 Artifact。  
-- **Release**：推送 `v*` 标签时同样先确保工具链，再发布 `cnos-<tag>.iso` 与 `kernel-<tag>.elf`。
+- **CI**：推送/PR 至 `main` 时生成 `kernel.elf`、`chaseros.iso`，并上传 Artifact。  
+- **Release**：推送 `v*` 标签时同样先确保工具链，再发布 `chaseros-<tag>.iso` 与 `kernel-<tag>.elf`。
 
 自建 Runner 时：保证已安装脚本所需 **宿主编译依赖**（`build-essential`、`bison`、`flex`、`texinfo`、`curl`、`xz-utils` 等），与 Ubuntu 工作流一致即可。
 
@@ -154,7 +152,12 @@ make run
 
 ## 许可
 
-上游 **e2fsprogs** 等文件遵循其原有 GPL/LGPL 等声明；仓库内 CNOS 新增文件以项目整体许可为准（若未单独声明，请与维护者确认）。
+除文件头或目录另有说明外，**ChaserOS 原创代码与文档** 以 [**Apache License 2.0**](https://www.apache.org/licenses/LICENSE-2.0) 发布（见仓库根目录 **`LICENSE`**）。
+
+**文件系统（`kernel/fs/`）**：其中 **来自上游 e2fsprogs 仓库的源码子集**（如 `lib/ext2fs/`、`lib/et/`、`lib/e2p/` 及生成头 `include/ext2fs/` 等）**不**以 Apache-2.0 覆盖，须遵循 **上游 e2fsprogs 原有许可证与版权声明**（多为 GPL/LGPL，以各源文件头为准）。详见 **`kernel/fs/README`**。  
+同一目录下 **ChaserOS 自有** 部分（如 `vfs.c` / `vfs.h`、`chaseros/`、`cnaf/`）仍为 Apache-2.0，与仓库其余原创一致。
+
+与之混编或整体分发时，请同时满足 **Apache-2.0** 与 **上游 FS 组件** 各自的义务。
 
 ---
 

@@ -1,4 +1,4 @@
-/* kernel/drivers/ttfont.c - 缩放 VGA 字体；可选 stb_truetype（CNOS_HAVE_STBTT） */
+/* kernel/drivers/ttfont.c - 缩放 VGA 字体；可选 stb_truetype（CHASEROS_HAVE_STBTT） */
 
 #include "ttfont.h"
 #include "graphics.h"
@@ -7,7 +7,7 @@
 
 static int s_scale_bm = 1;
 
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
 #define STBTT_malloc(x, u) tt_alloc(x, u)
 #define STBTT_free(x, u)   tt_free(x, u)
 
@@ -41,7 +41,7 @@ static int g_cell_px;
 
 void ttfont_reset(void) {
     s_scale_bm = 1;
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
     tt_used = 0;
     g_vec_ok = 0;
 #endif
@@ -57,7 +57,7 @@ void ttfont_init_for_height(int screen_height) {
         s = 10;
     }
     s_scale_bm = s;
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
     if (g_vec_ok) {
         g_scale = (float)(screen_height / 42);
         if (g_scale < 8.0f) {
@@ -83,7 +83,7 @@ void ttfont_init_for_height(int screen_height) {
 }
 
 int ttfont_init_stb(const void *font_data, size_t font_size) {
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
     if (!font_data || font_size < 12u) {
         return -1;
     }
@@ -102,7 +102,7 @@ int ttfont_init_stb(const void *font_data, size_t font_size) {
 }
 
 int ttfont_is_vector(void) {
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
     return g_vec_ok;
 #else
     return 0;
@@ -110,7 +110,7 @@ int ttfont_is_vector(void) {
 }
 
 void ttfont_line_metrics(int *line_height_px, int *cell_width_px) {
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
     if (g_vec_ok) {
         *line_height_px = g_line_px;
         *cell_width_px = g_cell_px;
@@ -122,7 +122,7 @@ void ttfont_line_metrics(int *line_height_px, int *cell_width_px) {
 }
 
 void ttfont_draw_glyph(int x, int y, unsigned char c, uint32_t fg) {
-#ifdef CNOS_HAVE_STBTT
+#ifdef CHASEROS_HAVE_STBTT
     if (g_vec_ok) {
         int w, h, xoff, yoff;
         unsigned char *bm =

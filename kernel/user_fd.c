@@ -5,14 +5,14 @@
 #include "errno.h"
 #include "syscall_abi.h"
 #include "vmm.h"
-#ifdef CNOS_HYBRID_FS_VIA_IPC
+#ifdef CHASEROS_HYBRID_FS_VIA_IPC
 #include "hybrid_ipc.h"
 #endif
 
 #include <stdint.h>
 
-#define CNOS_USER_FD_MIN 3
-#define CNOS_USER_FD_NUM 8
+#define CHASEROS_USER_FD_MIN 3
+#define CHASEROS_USER_FD_NUM 8
 
 typedef struct {
     int valid;
@@ -21,10 +21,10 @@ typedef struct {
     uint32_t size;
 } user_fd_slot_t;
 
-static user_fd_slot_t g_ufd[CNOS_USER_FD_NUM];
+static user_fd_slot_t g_ufd[CHASEROS_USER_FD_NUM];
 
 void user_fd_reset(void) {
-    for (int i = 0; i < CNOS_USER_FD_NUM; i++) {
+    for (int i = 0; i < CHASEROS_USER_FD_NUM; i++) {
         g_ufd[i].valid = 0;
     }
 }
@@ -63,7 +63,7 @@ long user_fd_open_kpath(const char *path, int flags) {
         return -ENOENT;
     }
     int idx = -1;
-    for (int i = 0; i < CNOS_USER_FD_NUM; i++) {
+    for (int i = 0; i < CHASEROS_USER_FD_NUM; i++) {
         if (!g_ufd[i].valid) {
             idx = i;
             break;
@@ -87,7 +87,7 @@ long user_fd_open_kpath(const char *path, int flags) {
     } else {
         g_ufd[idx].size = (uint32_t)st.size;
     }
-    return (long)(CNOS_USER_FD_MIN + idx);
+    return (long)(CHASEROS_USER_FD_MIN + idx);
 }
 
 long user_fd_sys_open(uint64_t path_ptr, int flags) {
@@ -101,7 +101,7 @@ long user_fd_sys_open(uint64_t path_ptr, int flags) {
         return ce;
     }
 
-#ifdef CNOS_HYBRID_FS_VIA_IPC
+#ifdef CHASEROS_HYBRID_FS_VIA_IPC
     return hybrid_user_fd_open_via_ipc(path, flags);
 #else
     return user_fd_open_kpath(path, flags);
@@ -109,10 +109,10 @@ long user_fd_sys_open(uint64_t path_ptr, int flags) {
 }
 
 long user_fd_sys_close(int fd) {
-    if (fd < CNOS_USER_FD_MIN || fd >= CNOS_USER_FD_MIN + CNOS_USER_FD_NUM) {
+    if (fd < CHASEROS_USER_FD_MIN || fd >= CHASEROS_USER_FD_MIN + CHASEROS_USER_FD_NUM) {
         return -EBADF;
     }
-    int idx = fd - CNOS_USER_FD_MIN;
+    int idx = fd - CHASEROS_USER_FD_MIN;
     if (!g_ufd[idx].valid) {
         return -EBADF;
     }
@@ -121,14 +121,14 @@ long user_fd_sys_close(int fd) {
 }
 
 long user_fd_sys_read(int fd, uint64_t ua, size_t len) {
-    if (fd < CNOS_USER_FD_MIN || fd >= CNOS_USER_FD_MIN + CNOS_USER_FD_NUM) {
+    if (fd < CHASEROS_USER_FD_MIN || fd >= CHASEROS_USER_FD_MIN + CHASEROS_USER_FD_NUM) {
         return -EBADF;
     }
-    int idx = fd - CNOS_USER_FD_MIN;
+    int idx = fd - CHASEROS_USER_FD_MIN;
     if (!g_ufd[idx].valid) {
         return -EBADF;
     }
-    if (len > CNOS_SYSCALL_MAX_IO_BYTES) {
+    if (len > CHASEROS_SYSCALL_MAX_IO_BYTES) {
         return -EINVAL;
     }
     if (len == 0) {

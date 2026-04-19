@@ -53,21 +53,21 @@ jobs:
       - name: Configure & build
         run: |
           cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
-          cmake --build build --target cnos_iso -j"$(nproc)"
+          cmake --build build --target chaseros_iso -j"$(nproc)"
 
       - name: Rename assets (tag in filename)
         run: |
           TAG="${GITHUB_REF_NAME}"
-          cp build/cnos.iso "cnos-${TAG}.iso"
+          cp build/chaseros.iso "chaseros-${TAG}.iso"
           cp build/kernel.elf "kernel-${TAG}.elf"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: CNOS ${{ github.ref_name }}
+          name: ChaserOS ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            cnos-${{ github.ref_name }}.iso
+            chaseros-${{ github.ref_name }}.iso
             kernel-${{ github.ref_name }}.elf
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

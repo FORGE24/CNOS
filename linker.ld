@@ -1,4 +1,4 @@
-/* linker.ld - CNOS 64位微内核链接脚本 (Multiboot2 / GRUB2) */
+/* linker.ld - ChaserOS 64位微内核链接脚本 (Multiboot2 / GRUB2) */
 
 ENTRY(_start)
 

@@ -28,7 +28,7 @@ Slime CNOS STD（用户态标准库占位）
      import "cnos/runtime"
      import "cnos/io"
 
-   最小参考示例：**user/cnos-first.sm**（第一层基础设施演示）。
+   最小参考示例：**user/chaseros-first.sm**（第一层基础设施演示）。
 
 与用户态示例并行开发 CNOS Slime STD
 ------------------------------------

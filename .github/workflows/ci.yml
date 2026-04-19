@@ -73,14 +73,14 @@ jobs:
       - name: Build kernel.elf
         run: cmake --build build --target kernel.elf -j"$(nproc)"
 
-      - name: Build cnos.iso
-        run: cmake --build build --target cnos_iso -j"$(nproc)"
+      - name: Build chaseros.iso
+        run: cmake --build build --target chaseros_iso -j"$(nproc)"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cnos-build-${{ github.sha }}
+          name: chaseros-build-${{ github.sha }}
           path: |
             build/kernel.elf
-            build/cnos.iso
+            build/chaseros.iso
           if-no-files-found: error

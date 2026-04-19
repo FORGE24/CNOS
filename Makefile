@@ -1,7 +1,7 @@
 # 薄封装：实际构建由 CMake 完成。
 #
 # 默认流程会：编译 user/hello.elf → 嵌入为 build/hello_elf.o → 链接 kernel.elf →
-#（若存在 grub-mkrescue）生成 build/cnos.iso。
+#（若存在 grub-mkrescue）生成 build/chaseros.iso。
 #
 # 变量：
 #   BUILD_DIR  构建目录，默认 build
@@ -33,7 +33,7 @@ kernel: configure
 
 # 在已有 kernel.elf 基础上生成 ISO（需 grub-mkrescue）
 iso: configure
-	cmake --build $(BUILD_DIR) --target cnos_iso
+	cmake --build $(BUILD_DIR) --target chaseros_iso
 
 clean:
 	@cmake --build $(BUILD_DIR) --target clean 2>/dev/null || true
@@ -46,17 +46,17 @@ cnaf-user:
 
 # 构建并 QEMU 从 ISO 启动（与 README 一致）
 run: all
-	$(QEMU) -cdrom $(BUILD_DIR)/cnos.iso -m 128M -serial stdio $(QEMU_OPTS)
+	$(QEMU) -cdrom $(BUILD_DIR)/chaseros.iso -m 128M -serial stdio $(QEMU_OPTS)
 
-# 使用 CMake 定义的 run 目标（依赖 cnos_iso，等价于上方 QEMU 命令）
+# 使用 CMake 定义的 run 目标（依赖 chaseros_iso，等价于上方 QEMU 命令）
 run-cmake: all
 	cmake --build $(BUILD_DIR) --target run
 
 help:
-	@echo "CNOS Makefile（封装 CMake）"
+	@echo "ChaserOS Makefile（封装 CMake）"
 	@echo "  make / make all   - 配置（若需）并完整构建"
 	@echo "  make kernel       - 仅构建 $(BUILD_DIR)/kernel.elf"
-	@echo "  make iso          - 生成 $(BUILD_DIR)/cnos.iso（需 grub-mkrescue）"
+	@echo "  make iso          - 生成 $(BUILD_DIR)/chaseros.iso（需 grub-mkrescue）"
 	@echo "  make run          - 构建后用 QEMU 运行 ISO"
 	@echo "  make run-cmake    - 同上，通过 cmake --target run"
 	@echo "  make clean        - 清理构建目录"

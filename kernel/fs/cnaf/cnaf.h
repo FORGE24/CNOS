@@ -1,7 +1,7 @@
 /* CNAF/CNAFL 内核侧 API（Phase A：头解析） */
 
-#ifndef CNOS_CNAF_H
-#define CNOS_CNAF_H
+#ifndef CHASEROS_CNAF_H
+#define CHASEROS_CNAF_H
 
 #include <stddef.h>
 

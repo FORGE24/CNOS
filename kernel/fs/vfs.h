@@ -1,4 +1,4 @@
-/* kernel/fs/vfs.h - 虚拟文件系统：根挂载 + 后端分发（当前为 cnos ext2 卷） */
+/* kernel/fs/vfs.h - 虚拟文件系统：根挂载 + 后端分发（当前为 chaseros ext2 卷） */
 
 #ifndef VFS_H
 #define VFS_H
@@ -26,7 +26,7 @@ typedef enum {
 
 void vfs_init(void);
 
-/* 将当前 cnos_vol 挂为根（读目录、读写文件前须成功挂载） */
+/* 将当前 chaseros_vol 挂为根（读目录、读写文件前须成功挂载） */
 int vfs_mount_root(void);
 int vfs_umount_root(void);
 int vfs_is_mounted(void);
@@ -35,7 +35,13 @@ vfs_fstype_t vfs_root_fstype(void);
 /* 在当前卷上创建 ext2（不要求已 mount；破坏原有数据） */
 int vfs_format(void);
 
-int vfs_ls(void);
+/** path 为 NULL 或 "" 时列出根目录 "/" */
+int vfs_ls(const char *path);
+int vfs_mkdir(const char *path);
+/** 相对 cwd 拼出绝对路径并规范化（输出以 '/' 开头） */
+int vfs_resolve_path(const char *cwd, const char *rel, char *out, size_t outsz);
+/** 已挂载且 path 为规范化后的目录则返回非零 */
+int vfs_is_directory(const char *path);
 int vfs_read_file(const char *name, char *buf, size_t buf_sz, size_t *out_len);
 /** 从普通文件偏移 offset 起读取（内核缓冲区 buf） */
 int vfs_read_file_range(const char *name, uint32_t offset, void *buf, size_t buf_sz,

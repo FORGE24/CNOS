@@ -5,6 +5,6 @@
 
 #include <stdint.h>
 
-extern volatile uint64_t cnos_kernel_ticks;
+extern volatile uint64_t chaseros_kernel_ticks;
 
 #endif

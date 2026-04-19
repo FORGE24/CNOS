@@ -1,12 +1,12 @@
-#include "fs/cnos/config.h"
-#include "fs/cnos/porting.h"
-#include "fs/cnos/cnos_io.h"
+#include "fs/chaseros/config.h"
+#include "fs/chaseros/porting.h"
+#include "fs/chaseros/chaseros_io.h"
 
 #include <stddef.h>
 
 #include "ext2fs/ext2_err.h"
 
-static void cnos_memcpy(void *dst, const void *src, size_t n) {
+static void chaseros_memcpy(void *dst, const void *src, size_t n) {
     unsigned char *d = dst;
     const unsigned char *s = src;
     while (n--) {
@@ -14,7 +14,7 @@ static void cnos_memcpy(void *dst, const void *src, size_t n) {
     }
 }
 
-static void cnos_memset(void *dst, int c, size_t n) {
+static void chaseros_memset(void *dst, int c, size_t n) {
     unsigned char *d = dst;
     unsigned char v = (unsigned char)c;
     while (n--) {
@@ -22,7 +22,7 @@ static void cnos_memset(void *dst, int c, size_t n) {
     }
 }
 
-struct cnos_ramdisk_data {
+struct chaseros_ramdisk_data {
     void *base;
     size_t nbytes;
 };
@@ -30,29 +30,29 @@ struct cnos_ramdisk_data {
 static void *g_ramdisk_base;
 static size_t g_ramdisk_len;
 
-void cnos_ramdisk_attach(void *base, size_t nbytes) {
+void chaseros_ramdisk_attach(void *base, size_t nbytes) {
     g_ramdisk_base = base;
     g_ramdisk_len = nbytes;
 }
 
-static errcode_t cnos_close(io_channel channel) {
+static errcode_t chaseros_close(io_channel channel) {
     if (!channel || channel->magic != EXT2_ET_MAGIC_IO_CHANNEL) {
         return EXT2_ET_MAGIC_IO_CHANNEL;
     }
     channel->magic = 0;
     if (channel->name) {
-        cnos_free(channel->name);
+        chaseros_free(channel->name);
         channel->name = NULL;
     }
     if (channel->private_data) {
-        cnos_free(channel->private_data);
+        chaseros_free(channel->private_data);
         channel->private_data = NULL;
     }
-    cnos_free(channel);
+    chaseros_free(channel);
     return 0;
 }
 
-static errcode_t cnos_set_blksize(io_channel channel, int blksize) {
+static errcode_t chaseros_set_blksize(io_channel channel, int blksize) {
     if (blksize <= 0 || (blksize & (blksize - 1))) {
         return EXT2_ET_INVALID_ARGUMENT;
     }
@@ -60,9 +60,9 @@ static errcode_t cnos_set_blksize(io_channel channel, int blksize) {
     return 0;
 }
 
-static errcode_t cnos_read_blk(io_channel channel, unsigned long block, int count,
+static errcode_t chaseros_read_blk(io_channel channel, unsigned long block, int count,
                                void *data) {
-    struct cnos_ramdisk_data *d = channel->private_data;
+    struct chaseros_ramdisk_data *d = channel->private_data;
     unsigned bs = (unsigned)channel->block_size;
 
     if (!d || !data || count <= 0 || bs == 0) {
@@ -73,13 +73,13 @@ static errcode_t cnos_read_blk(io_channel channel, unsigned long block, int coun
     if (off + need > (unsigned long long)d->nbytes) {
         return EXT2_ET_SHORT_READ;
     }
-    cnos_memcpy(data, (const unsigned char *)d->base + off, (size_t)need);
+    chaseros_memcpy(data, (const unsigned char *)d->base + off, (size_t)need);
     return 0;
 }
 
-static errcode_t cnos_write_blk(io_channel channel, unsigned long block, int count,
+static errcode_t chaseros_write_blk(io_channel channel, unsigned long block, int count,
                                 const void *data) {
-    struct cnos_ramdisk_data *d = channel->private_data;
+    struct chaseros_ramdisk_data *d = channel->private_data;
     unsigned bs = (unsigned)channel->block_size;
 
     if (!d || !data || count <= 0 || bs == 0) {
@@ -90,19 +90,19 @@ static errcode_t cnos_write_blk(io_channel channel, unsigned long block, int cou
     if (off + need > (unsigned long long)d->nbytes) {
         return EXT2_ET_SHORT_WRITE;
     }
-    cnos_memcpy((unsigned char *)d->base + off, data, (size_t)need);
+    chaseros_memcpy((unsigned char *)d->base + off, data, (size_t)need);
     return 0;
 }
 
-static errcode_t cnos_flush(io_channel channel) {
+static errcode_t chaseros_flush(io_channel channel) {
     (void)channel;
     return 0;
 }
 
-static errcode_t cnos_open(const char *name, int flags, io_channel *channel) {
+static errcode_t chaseros_open(const char *name, int flags, io_channel *channel) {
     (void)flags;
     io_channel io;
-    struct cnos_ramdisk_data *pd;
+    struct chaseros_ramdisk_data *pd;
     size_t nl;
     errcode_t err;
 
@@ -111,13 +111,13 @@ static errcode_t cnos_open(const char *name, int flags, io_channel *channel) {
         return EXT2_ET_INVALID_ARGUMENT;
     }
 
-    io = cnos_malloc(sizeof(struct struct_io_channel));
+    io = chaseros_malloc(sizeof(struct struct_io_channel));
     if (!io) {
         return EXT2_ET_NO_MEMORY;
     }
-    cnos_memset(io, 0, sizeof(struct struct_io_channel));
+    chaseros_memset(io, 0, sizeof(struct struct_io_channel));
     io->magic = EXT2_ET_MAGIC_IO_CHANNEL;
-    io->manager = cnos_io_manager;
+    io->manager = chaseros_io_manager;
     io->block_size = 1024;
     io->refcount = 1;
 
@@ -128,18 +128,18 @@ static errcode_t cnos_open(const char *name, int flags, io_channel *channel) {
             nl++;
         }
     }
-    io->name = cnos_malloc(nl + 1);
+    io->name = chaseros_malloc(nl + 1);
     if (!io->name) {
         err = EXT2_ET_NO_MEMORY;
         goto bad_io;
     }
     if (name && nl) {
-        cnos_memcpy(io->name, name, nl + 1);
+        chaseros_memcpy(io->name, name, nl + 1);
     } else {
         io->name[0] = '\0';
     }
 
-    pd = cnos_malloc(sizeof(struct cnos_ramdisk_data));
+    pd = chaseros_malloc(sizeof(struct chaseros_ramdisk_data));
     if (!pd) {
         err = EXT2_ET_NO_MEMORY;
         goto bad_name;
@@ -151,53 +151,53 @@ static errcode_t cnos_open(const char *name, int flags, io_channel *channel) {
     return 0;
 
 bad_name:
-    cnos_free(io->name);
+    chaseros_free(io->name);
 bad_io:
-    cnos_free(io);
+    chaseros_free(io);
     return err;
 }
 
-static struct struct_io_manager cnos_mgr_storage = {
+static struct struct_io_manager chaseros_mgr_storage = {
     .magic = EXT2_ET_MAGIC_IO_MANAGER,
-    .name = "cnos_ramdisk",
-    .open = cnos_open,
-    .close = cnos_close,
-    .set_blksize = cnos_set_blksize,
-    .read_blk = cnos_read_blk,
-    .write_blk = cnos_write_blk,
-    .flush = cnos_flush,
+    .name = "chaseros_ramdisk",
+    .open = chaseros_open,
+    .close = chaseros_close,
+    .set_blksize = chaseros_set_blksize,
+    .read_blk = chaseros_read_blk,
+    .write_blk = chaseros_write_blk,
+    .flush = chaseros_flush,
 };
 
-io_manager cnos_io_manager = &cnos_mgr_storage;
+io_manager chaseros_io_manager = &chaseros_mgr_storage;
 
-errcode_t cnos_io_selftest(void) {
+errcode_t chaseros_io_selftest(void) {
     static unsigned char buf[4096] __attribute__((aligned(8)));
     io_channel ch = NULL;
     errcode_t e;
     unsigned char out[1024];
 
-    cnos_memset(buf, 0xCD, sizeof buf);
+    chaseros_memset(buf, 0xCD, sizeof buf);
     buf[0] = 0x11;
     buf[1] = 0x22;
 
-    cnos_ramdisk_attach(buf, sizeof buf);
-    e = cnos_io_manager->open("cnos_selftest", 0, &ch);
+    chaseros_ramdisk_attach(buf, sizeof buf);
+    e = chaseros_io_manager->open("chaseros_selftest", 0, &ch);
     if (e) {
         return e;
     }
     e = io_channel_set_blksize(ch, 1024);
     if (e) {
-        cnos_io_manager->close(ch);
+        chaseros_io_manager->close(ch);
         return e;
     }
     e = io_channel_read_blk(ch, 0, 1, out);
     if (e) {
-        cnos_io_manager->close(ch);
+        chaseros_io_manager->close(ch);
         return e;
     }
     if (out[0] != 0x11 || out[1] != 0x22) {
-        cnos_io_manager->close(ch);
+        chaseros_io_manager->close(ch);
         return EXT2_ET_SHORT_READ;
     }
-    return cnos_io_manager->close(ch);
+    return chaseros_io_manager->close(ch);
 }

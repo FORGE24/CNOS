@@ -29,7 +29,7 @@ shift 2
 mkdir -p "$(dirname "$OUT")"
 
 LIB_NAME=""
-BUNDLE_ID="cnos.slime.generated"
+BUNDLE_ID="chaseros.slime.generated"
 ABI_MAJOR="1"
 ABI_MINOR="0"
 while [[ $# -gt 0 ]]; do
@@ -57,13 +57,13 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n "$LIB_NAME" ]] || usage
 
-ROOT="${CNOS_ROOT:-$ROOT}"
-if [[ -n "${CNOS_APP_ROOT:-}" && -f "${CNOS_APP_ROOT}/bin/cnos-app-env.sh" ]]; then
+ROOT="${CHASEROS_ROOT:-$ROOT}"
+if [[ -n "${CHASEROS_APP_ROOT:-}" && -f "${CHASEROS_APP_ROOT}/bin/cnos-app-env.sh" ]]; then
   # shellcheck source=/dev/null
-  source "${CNOS_APP_ROOT}/bin/cnos-app-env.sh"
+  source "${CHASEROS_APP_ROOT}/bin/cnos-app-env.sh"
 fi
 
-SLIMEC_BIN="${CNOS_SLIMEC:-}"
+SLIMEC_BIN="${CHASEROS_SLIMEC:-}"
 if [[ -z "$SLIMEC_BIN" ]] && [[ -x "${ROOT}/build/slime-tools/slimec" ]]; then
   SLIMEC_BIN="${ROOT}/build/slime-tools/slimec"
 fi
@@ -75,13 +75,13 @@ if [[ -z "$SLIMEC_BIN" ]] || [[ ! -x "$SLIMEC_BIN" ]]; then
   exit 1
 fi
 
-NASM_BIN="${CNOS_NASM:-$(command -v nasm || true)}"
+NASM_BIN="${CHASEROS_NASM:-$(command -v nasm || true)}"
 if [[ -z "$NASM_BIN" ]] || [[ ! -x "$NASM_BIN" ]]; then
   echo "找不到 nasm"
   exit 1
 fi
 
-AR_BIN="${CNOS_AR:-$(command -v ar || true)}"
+AR_BIN="${CHASEROS_AR:-$(command -v ar || true)}"
 if [[ -z "$AR_BIN" ]] || [[ ! -x "$AR_BIN" ]]; then
   echo "找不到 GNU ar"
   exit 1

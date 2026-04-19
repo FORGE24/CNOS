@@ -27,7 +27,7 @@ long hybrid_user_fd_open_via_ipc(const char *path, int flags) {
     (void)flags;
     message_t req;
     req.sender = 0;
-    req.type = CNOS_MSG_FS_OPEN;
+    req.type = CHASEROS_MSG_FS_OPEN;
     size_t i = 0;
     for (; path[i] && i + 1 < (size_t)MAX_MSG_PAYLOAD; i++) {
         req.payload[i] = (uint8_t)path[i];
@@ -37,7 +37,7 @@ long hybrid_user_fd_open_via_ipc(const char *path, int flags) {
         req.payload[i++] = 0;
     }
 
-    if (ipc_send(CNOS_HYBRID_SERVICE_PID, &req) != IPC_OK) {
+    if (ipc_send(CHASEROS_HYBRID_SERVICE_PID, &req) != IPC_OK) {
         return -EIO;
     }
 
@@ -46,13 +46,13 @@ long hybrid_user_fd_open_via_ipc(const char *path, int flags) {
 
     message_t rep;
     ipc_consume_pending_message((struct proc *)cur, &rep);
-    if (rep.type != CNOS_MSG_FS_REPLY) {
+    if (rep.type != CHASEROS_MSG_FS_REPLY) {
         return -EIO;
     }
     return (long)unpack_i64(rep.payload);
 }
 
-static void cnos_hybrid_ipc_service_loop(void) {
+static void chaseros_hybrid_ipc_service_loop(void) {
     for (;;) {
         message_t m;
         int r;
@@ -63,7 +63,7 @@ static void cnos_hybrid_ipc_service_loop(void) {
             continue;
         }
 
-        if (m.type == CNOS_MSG_FS_OPEN) {
+        if (m.type == CHASEROS_MSG_FS_OPEN) {
             char path[MAX_MSG_PAYLOAD];
             size_t j = 0;
             for (; j < sizeof(path) - 1; j++) {
@@ -76,8 +76,8 @@ static void cnos_hybrid_ipc_service_loop(void) {
 
             long fd = user_fd_open_kpath(path, 0);
             message_t reply;
-            reply.sender = CNOS_HYBRID_SERVICE_PID;
-            reply.type = CNOS_MSG_FS_REPLY;
+            reply.sender = CHASEROS_HYBRID_SERVICE_PID;
+            reply.type = CHASEROS_MSG_FS_REPLY;
             for (int k = 0; k < MAX_MSG_PAYLOAD; k++) {
                 reply.payload[k] = 0;
             }
@@ -87,15 +87,15 @@ static void cnos_hybrid_ipc_service_loop(void) {
         }
 
         message_t reply;
-        reply.sender = CNOS_HYBRID_SERVICE_PID;
+        reply.sender = CHASEROS_HYBRID_SERVICE_PID;
         for (int i = 0; i < MAX_MSG_PAYLOAD; i++) {
             reply.payload[i] = m.payload[i];
         }
-        reply.type = (m.type == CNOS_MSG_PING) ? CNOS_MSG_PONG : CNOS_MSG_NOP;
+        reply.type = (m.type == CHASEROS_MSG_PING) ? CHASEROS_MSG_PONG : CHASEROS_MSG_NOP;
         (void)ipc_reply(m.sender, &reply);
     }
 }
 
-void cnos_hybrid_ipc_service_spawn(void) {
-    (void)process_spawn_kernel_at_pid(CNOS_HYBRID_SERVICE_PID, cnos_hybrid_ipc_service_loop);
+void chaseros_hybrid_ipc_service_spawn(void) {
+    (void)process_spawn_kernel_at_pid(CHASEROS_HYBRID_SERVICE_PID, chaseros_hybrid_ipc_service_loop);
 }

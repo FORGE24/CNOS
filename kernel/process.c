@@ -5,7 +5,7 @@
 #include "vmm.h"
 #include <stddef.h>
 
-extern uint64_t cnos_active_user_pid;
+extern uint64_t chaseros_active_user_pid;
 
 static scheduler_t sched;
 
@@ -129,7 +129,7 @@ void process_bind_user_slot(uint64_t pid) {
 }
 
 proc_t *process_current_task_for_ipc(void) {
-    proc_t *u = process_find_by_pid(cnos_active_user_pid);
+    proc_t *u = process_find_by_pid(chaseros_active_user_pid);
     if (u && u->state == PROC_STATE_USER_SLOT) {
         return u;
     }
@@ -140,7 +140,7 @@ void process_ipc_wake_from_receive(proc_t *p) {
     if (p->state != PROC_STATE_RECEIVING) {
         return;
     }
-    if (p->pid == cnos_active_user_pid && cnos_active_user_pid != 0) {
+    if (p->pid == chaseros_active_user_pid && chaseros_active_user_pid != 0) {
         p->state = PROC_STATE_USER_SLOT;
     } else {
         p->state = PROC_STATE_READY;
@@ -151,7 +151,7 @@ void process_ipc_wake_after_reply(proc_t *peer) {
     if (peer->state != PROC_STATE_WAITING_REPLY) {
         return;
     }
-    if (peer->pid == cnos_active_user_pid && cnos_active_user_pid != 0) {
+    if (peer->pid == chaseros_active_user_pid && chaseros_active_user_pid != 0) {
         peer->state = PROC_STATE_USER_SLOT;
     } else {
         peer->state = PROC_STATE_READY;

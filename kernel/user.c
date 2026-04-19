@@ -22,7 +22,7 @@ static void grant_user_regions(void) {
 
 extern void puts(const char *s);
 
-uint64_t cnos_active_user_pid = 2;
+uint64_t chaseros_active_user_pid = 2;
 
 extern char _binary_hello_bin_start[];
 extern char _binary_hello_bin_end[];
@@ -30,7 +30,7 @@ extern char _binary_hello_bin_end[];
 extern char _binary_demo_cnaf_bin_start[];
 extern char _binary_demo_cnaf_bin_end[];
 
-#ifdef CNOS_HAVE_SLIME_USER
+#ifdef CHASEROS_HAVE_SLIME_USER
 extern char _binary_hello_sm_bin_start[];
 extern char _binary_hello_sm_bin_end[];
 #endif
@@ -49,7 +49,7 @@ static void user_jump_to_ring3(uint64_t rip, uint64_t rsp) {
 }
 
 void userland_exit_done(void) {
-    puts("\n[user] exited.\nCNOS> ");
+    puts("\n[user] exited.\nChaserOS> ");
     for (;;) {
         __asm__ volatile("hlt");
     }
@@ -92,8 +92,8 @@ static void user_run_cnaf_inner(const uint8_t *blob, size_t blob_sz, const char 
         return;
     }
 
-    cnos_active_user_pid = 2;
-    process_bind_user_slot(cnos_active_user_pid);
+    chaseros_active_user_pid = 2;
+    process_bind_user_slot(chaseros_active_user_pid);
     user_fd_reset();
     puts("[kernel] jumping to user ("); puts(tag); puts(", CNAF IMAGE, ring 3)...\n");
     user_jump_to_ring3(entry, USER_STACK_TOP);
@@ -110,8 +110,8 @@ static void user_run_embedded_elf(const uint8_t *blob_start, const uint8_t *blob
         return;
     }
 
-    cnos_active_user_pid = 2;
-    process_bind_user_slot(cnos_active_user_pid);
+    chaseros_active_user_pid = 2;
+    process_bind_user_slot(chaseros_active_user_pid);
     user_fd_reset();
     puts("[kernel] jumping to user ("); puts(tag); puts(", ring 3)...\n");
     user_jump_to_ring3(entry, USER_STACK_TOP);
@@ -123,11 +123,11 @@ void user_run_embedded_hello(void) {
 }
 
 void user_run_embedded_slime_hello(void) {
-#ifdef CNOS_HAVE_SLIME_USER
+#ifdef CHASEROS_HAVE_SLIME_USER
     user_run_embedded_elf((const uint8_t *)_binary_hello_sm_bin_start,
                          (const uint8_t *)_binary_hello_sm_bin_end, "Slime hello");
 #else
-    puts("Slime user ELF not embedded. Reconfigure with -DCNOS_WITH_SLIME_USER=ON (needs slimec in PATH).\n");
+    puts("Slime user ELF not embedded. Reconfigure with -DCHASEROS_WITH_SLIME_USER=ON (needs slimec in PATH).\n");
 #endif
 }
 

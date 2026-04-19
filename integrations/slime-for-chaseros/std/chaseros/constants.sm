@@ -14,12 +14,12 @@ const SYS_IPC_CALL      = 10
 
 const HYBRID_SERVICE_PID = 3
 
-// 与 kernel/ipc.h message_t / user cnos_message_t 一致（字节）
-const CNOS_MSG_SIZE       = 64
-const CNOS_MSG_OFF_SENDER = 0
-const CNOS_MSG_OFF_TYPE   = 8
-const CNOS_MSG_OFF_PAYLOAD = 16
-const CNOS_MSG_PAYLOAD_LEN = 48
+// 与 kernel/ipc.h message_t / user chaseros_message_t 一致（字节）
+const CHASEROS_MSG_SIZE       = 64
+const CHASEROS_MSG_OFF_SENDER = 0
+const CHASEROS_MSG_OFF_TYPE   = 8
+const CHASEROS_MSG_OFF_PAYLOAD = 16
+const CHASEROS_MSG_PAYLOAD_LEN = 48
 
 // message_t.type（与 kernel/hybrid_ipc.h 一致）
 const MSG_NOP       = 0
@@ -29,4 +29,4 @@ const MSG_FS_OPEN   = 10
 const MSG_FS_REPLY  = 11
 
 // 与 kernel/syscall_abi.h 中 CNOS_SYSCALL_MAX_IO_BYTES 一致（单次 read/write 长度上限）
-const CNOS_MAX_WRITE_BYTES = 1048576
+const CHASEROS_MAX_WRITE_BYTES = 1048576

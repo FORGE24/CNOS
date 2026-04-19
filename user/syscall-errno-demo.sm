@@ -2,16 +2,16 @@
 // source scripts/cnos-slime-dev-env.sh
 // bash scripts/cnos-slime-compile.sh user/syscall-errno-demo.sm /tmp/syscall-errno-demo.elf
 
-import "cnos/io"
-import "cnos/errno"
-import "cnos/syscall"
+import "chaseros/io"
+import "chaseros/errno"
+import "chaseros/syscall"
 
 fn main {
-    var bad = cnos_write(2, 0, 0)
-    if cnos_syscall_ok(bad) == 0 {
-        if cnos_syscall_errno(bad) == EBADF {
+    var bad = chaseros_write(2, 0, 0)
+    if chaseros_syscall_ok(bad) == 0 {
+        if chaseros_syscall_errno(bad) == EBADF {
             print "syscall errno: EBADF ok\n"
         }
     }
-    cnos_exit(0)
+    chaseros_exit(0)
 }

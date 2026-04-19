@@ -1,0 +1,12 @@
+// Slime ChaserOS「第一个用户态基础设施」示例：chaseros/runtime + chaseros/io；输出走内置 print（SYS_WRITE）。
+//
+import "chaseros/runtime"
+import "chaseros/io"
+
+fn main {
+    if chaseros_init() != 0 {
+        chaseros_abort(1)
+    }
+    print "chaseros-first: runtime + io OK\n"
+    chaseros_exit(0)
+}

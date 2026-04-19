@@ -2,15 +2,15 @@
 # 使用: cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
 #
 # 若 PATH 里没有 x86_64-elf-gcc，可任选其一：
-#   export CNOS_X86_64_ELF_GCC=/usr/local/cross/bin/x86_64-elf-gcc
+#   export CHASEROS_X86_64_ELF_GCC=/usr/local/cross/bin/x86_64-elf-gcc
 #   cmake -B build -DCMAKE_TOOLCHAIN_FILE=... -DCMAKE_C_COMPILER=/path/to/x86_64-elf-gcc
 
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
 if(NOT CMAKE_C_COMPILER)
-    if(DEFINED ENV{CNOS_X86_64_ELF_GCC} AND NOT "$ENV{CNOS_X86_64_ELF_GCC}" STREQUAL "")
-        set(CMAKE_C_COMPILER "$ENV{CNOS_X86_64_ELF_GCC}")
+    if(DEFINED ENV{CHASEROS_X86_64_ELF_GCC} AND NOT "$ENV{CHASEROS_X86_64_ELF_GCC}" STREQUAL "")
+        set(CMAKE_C_COMPILER "$ENV{CHASEROS_X86_64_ELF_GCC}")
     else()
         find_program(CMAKE_C_COMPILER NAMES x86_64-elf-gcc
             HINTS
@@ -26,8 +26,8 @@ if(NOT CMAKE_C_COMPILER)
 endif()
 
 if(NOT CMAKE_ASM_NASM_COMPILER)
-    if(DEFINED ENV{CNOS_NASM} AND NOT "$ENV{CNOS_NASM}" STREQUAL "")
-        set(CMAKE_ASM_NASM_COMPILER "$ENV{CNOS_NASM}")
+    if(DEFINED ENV{CHASEROS_NASM} AND NOT "$ENV{CHASEROS_NASM}" STREQUAL "")
+        set(CMAKE_ASM_NASM_COMPILER "$ENV{CHASEROS_NASM}")
     else()
         find_program(CMAKE_ASM_NASM_COMPILER NAMES nasm REQUIRED)
     endif()

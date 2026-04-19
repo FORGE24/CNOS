@@ -1,12 +1,12 @@
 /*
- * CNAF / CNAFL — 规范（CNOS Application Files & Libs）
+ * CNAF / CNAFL — 规范（ChaserOS Application Files & Libs）
  *
  * 本文档以头文件形式固定命名与布局约定，便于内核、加载器与宿主工具链共用一个“真相源”。
  * 实现顺序：先只读解析与校验 → 再与 VFS/块设备挂钩 → 最后用户态加载与链接。
  */
 
-#ifndef CNOS_CNAF_SPEC_H
-#define CNOS_CNAF_SPEC_H
+#ifndef CHASEROS_CNAF_SPEC_H
+#define CHASEROS_CNAF_SPEC_H
 
 #include <stdint.h>
 
@@ -15,10 +15,10 @@
 /* -------------------------------------------------------------------------- */
 
 /*
- * CNAF — CNOS Application File（.cnaf）
+ * CNAF — ChaserOS Application File（.cnaf）
  *   可部署的「应用单元」：清单 + 可选资源包 + 主可加载映像（推荐 ELF64，CNOS 子集 ABI）。
  *
- * CNAFL — CNOS Application Files Library（.cnafl）
+ * CNAFL — ChaserOS Application Files Library（.cnafl）
  *   可分发「库单元」：清单 + 一个可链接/可加载映像（静态归档 a 或动态共享 ELF .so 占位）。
  *
  * 关系：CNAF 在清单中声明对若干 CNAFL 的依赖；CNAFL 不依赖 CNAF。系统库放在 CNAF_SYS_LIB_DIR，
@@ -79,7 +79,7 @@ _Static_assert(sizeof(cnaf_file_header_t) == 36, "cnaf_file_header size");
 
 typedef enum {
     CNAF_SECTION_MANIFEST   = 1, /* UTF-8 文本清单，见下「清单格式」 */
-    CNAF_SECTION_RESOURCES  = 2, /* 可选；tar/zip 或 CNOS 自定义资源包（由 manifest 指明子格式） */
+    CNAF_SECTION_RESOURCES  = 2, /* 可选；tar/zip 或 ChaserOS 自定义资源包（由 manifest 指明子格式） */
     CNAF_SECTION_IMAGE      = 3, /* 主载荷：ELF64 可执行/动态库，或静态 .a（仅 CNAFL） */
     CNAF_SECTION_DEBUG      = 4, /* 可选；DWARF 等，加载器默认忽略 */
 } cnaf_section_type_t;
@@ -138,7 +138,7 @@ typedef struct cnaf_section_table {
  * CNAFL 专用：
  *   lib_name = cnui             # 逻辑名，用于 requires 解析；与文件名（去 .cnafl）应对应
  *   soname = libcnui.so.1       # 动态链占位：SONAME 等价物；静态库可省略
- *   abi_major = 1               # 与 CNOS 加载器/内核约定的接口主版本
+ *   abi_major = 1               # 与 ChaserOS 加载器/内核约定的接口主版本
  *   abi_minor = 0               # 次版本：兼容同 abi_major 时递增
  *   lib_kind = static           # static | shared（见 cnaf_lib_kind_t）
  */
@@ -172,7 +172,7 @@ typedef enum {
 /* -------------------------------------------------------------------------- */
 
 /*
- * CNAF + IMAGE：通常为 ET_EXEC 或 ET_DYN（位置无关可执行），64 位 ELF，CNOS 目标三元组 x86_64-none / 自定义。
+ * CNAF + IMAGE：通常为 ET_EXEC 或 ET_DYN（位置无关可执行），64 位 ELF，ChaserOS 目标三元组 x86_64-none / 自定义。
  * CNAFL + static：IMAGE 为 .a（通用 ar，成员为 ELF64 .o）。
  * CNAFL + shared：IMAGE 为 ET_DYN，SONAME 应与 manifest soname 一致（或由加载器校验）。
  */
@@ -205,4 +205,4 @@ typedef enum {
  * 与 libext2fs：仅通过 VFS 读文件；CNAF 不依赖磁盘 inode 布局。
  */
 
-#endif /* CNOS_CNAF_SPEC_H */
+#endif /* CHASEROS_CNAF_SPEC_H */
