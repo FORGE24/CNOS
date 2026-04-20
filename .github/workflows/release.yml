@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # ubuntu-24.04 默认源里没有 gcc-x86-64-elf / binutils-x86-64-elf，勿用 apt 装交叉链
       - name: Install host build deps + GRUB/xorriso
